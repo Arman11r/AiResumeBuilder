@@ -1,0 +1,59 @@
+server:
+  port: 8087
+
+spring:
+  application:
+    name: jobmatch-service
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/resumeai_jobmatch?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: admin123
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+jwt:
+  secret: resumeai-super-secret-key-change-in-production-2026
+
+services:
+  resume-url: http://localhost:8082
+  ai-url: http://localhost:8084
+
+# ──────────────────────────────────────────────────────────
+# Job Portal API Keys (via RapidAPI — https://rapidapi.com)
+# ──────────────────────────────────────────────────────────
+# To enable live job fetching:
+#   1. Sign up at https://rapidapi.com
+#   2. Subscribe to "JSearch" (covers LinkedIn, Naukri, Indeed etc.)
+#      URL: https://rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch
+#   3. Paste your key below
+# When key is blank or invalid the service falls back to realistic mock data.
+jobmatch:
+  rapidapi:
+    key: "6e5dd4b5f0mshde55c59175f2c0cp1dce91jsn87d25c354596"                               # ← PASTE YOUR RAPIDAPI KEY HERE
+    jsearch-host: jsearch.p.rapidapi.com
+    jsearch-url: https://jsearch.p.rapidapi.com/search
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
