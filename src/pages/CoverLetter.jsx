@@ -2,7 +2,9 @@ import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import api from '../services/api';
+import { pushNotification } from '../services/notify';
 import { useNavigate, useParams } from 'react-router-dom';
+import NotificationDropdown from '../components/NotificationDropdown';
 
 const MailIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -53,7 +55,13 @@ export default function CoverLetter() {
         jobDescription: jobDesc.trim(),
       });
       setLetter(res.data?.content || 'Failed to generate content');
-      showToast('Cover letter generated', 'success');
+      showToast('Cover letter generated ✨', 'success');
+      pushNotification({
+        recipientId: user.userId,
+        type: 'COVER_LETTER_GENERATED',
+        message: 'Your AI-generated cover letter is ready! Review it in the preview panel and copy or save it.',
+        relatedId: selectedResumeId,
+      });
     } catch (err) {
       showToast(err.response?.data?.message || err.response?.data?.error || 'Failed to generate cover letter. Try again.', 'error');
     } finally {
@@ -72,6 +80,7 @@ export default function CoverLetter() {
           <button className="nav-link" onClick={() => navigate('/job-match')}>Job Match</button>
           <button className="nav-link active">Cover Letters</button>
           <div className="nav-divider"></div>
+          <NotificationDropdown userId={user.userId} />
           <span style={{ fontSize: 13, color: 'var(--text-muted)', padding: '0 8px' }}>{user.email}</span>
         </div>
       </nav>

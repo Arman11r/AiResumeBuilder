@@ -2,7 +2,9 @@ import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import api from '../services/api';
+import { pushNotification } from '../services/notify';
 import { useNavigate } from 'react-router-dom';
+import NotificationDropdown from '../components/NotificationDropdown';
 
 const SearchIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -40,6 +42,8 @@ export default function JobMatch() {
   const [loading, setLoading] = useState(false);
   const [expandedJob, setExpandedJob] = useState(null);
   const [bookmarking, setBookmarking] = useState(null);
+  const [activeView, setActiveView] = useState('search'); // 'search' or 'bookmarks'
+  const [bookmarkedJobs, setBookmarkedJobs] = useState([]);
 
   useEffect(() => {
     const fetchResumes = async () => {
@@ -51,6 +55,22 @@ export default function JobMatch() {
     };
     fetchResumes();
   }, [user.userId]);
+
+  const fetchBookmarks = async () => {
+    setLoading(true);
+    try {
+      const res = await api.get(`/job-matches/bookmarked/${user.userId}`);
+      setBookmarkedJobs(res.data || []);
+    } catch (_) {
+      showToast('Failed to fetch bookmarks', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeView === 'bookmarks') fetchBookmarks();
+  }, [activeView]);
 
   const handleSearch = async (source) => {
     if (!selectedResumeId || !jobTitle.trim()) {
@@ -70,6 +90,13 @@ export default function JobMatch() {
       setJobs(res.data || []);
       const count = res.data?.length || 0;
       showToast(`Found ${count} job${count !== 1 ? 's' : ''} from ${SOURCE_LABELS[source].label}`, 'success');
+      if (count > 0) {
+        pushNotification({
+          recipientId: user.userId,
+          type: 'JOB_SEARCH_COMPLETE',
+          message: `Job search complete! Found ${count} matching role${count !== 1 ? 's' : ''} for “${jobTitle.trim()}” on ${SOURCE_LABELS[source].label}. Each listing has been scored against your resume.`,
+        });
+      }
     } catch (err) {
       showToast('Failed to fetch jobs. Please try again.', 'error');
     } finally {
@@ -82,7 +109,27 @@ export default function JobMatch() {
     setBookmarking(matchId);
     try {
       const res = await api.put(`/job-matches/${matchId}/bookmark`);
-      setJobs(jobs.map(j => j.matchId === matchId ? { ...j, isBookmarked: res.data.isBookmarked } : j));
+      const isNowBookmarked = res.data.isBookmarked;
+      
+      // Update jobs list
+      setJobs(jobs.map(j => j.matchId === matchId ? { ...j, isBookmarked: isNowBookmarked } : j));
+      
+      // Update bookmarkedJobs list if we are in bookmarks view
+      if (activeView === 'bookmarks' && !isNowBookmarked) {
+        setBookmarkedJobs(bookmarkedJobs.filter(j => j.matchId !== matchId));
+      } else if (activeView === 'bookmarks' && isNowBookmarked) {
+        fetchBookmarks();
+      }
+      
+      showToast(isNowBookmarked ? 'Job bookmarked 🔖' : 'Bookmark removed', isNowBookmarked ? 'success' : 'info');
+      if (isNowBookmarked) {
+        const job = jobs.find(j => j.matchId === matchId);
+        pushNotification({
+          recipientId: user.userId,
+          type: 'JOB_BOOKMARKED',
+          message: `You bookmarked “${job?.jobTitle || 'a job'}” at ${job?.companyName || 'a company'}. Track it in your Saved Jobs tab.`,
+        });
+      }
     } catch (_) {
       showToast('Could not update bookmark', 'error');
     } finally {
@@ -102,6 +149,8 @@ export default function JobMatch() {
     return 'badge-red';
   };
 
+  const displayedJobs = activeView === 'search' ? jobs : bookmarkedJobs;
+
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
       {/* Navbar */}
@@ -114,87 +163,128 @@ export default function JobMatch() {
           <button className="nav-link active">Job Match</button>
           <button className="nav-link" onClick={() => navigate('/cover-letter')}>Cover Letters</button>
           <div className="nav-divider"></div>
+          <NotificationDropdown userId={user.userId} />
           <span style={{ fontSize: 13, color: 'var(--text-muted)', padding: '0 8px' }}>{user.email}</span>
         </div>
       </nav>
 
       <div className="dashboard-container fade-in">
+        {/* Tab Toggle */}
+        <div style={{ display: 'flex', gap: 24, borderBottom: '1px solid var(--border)', marginBottom: 32 }}>
+          <button 
+            onClick={() => setActiveView('search')}
+            style={{ 
+              padding: '12px 4px', 
+              fontSize: 14, 
+              fontWeight: 600, 
+              color: activeView === 'search' ? 'var(--primary)' : 'var(--text-muted)',
+              borderBottom: activeView === 'search' ? '2px solid var(--primary)' : '2px solid transparent',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              marginBottom: -1
+            }}
+          >
+            Find New Jobs
+          </button>
+          <button 
+            onClick={() => setActiveView('bookmarks')}
+            style={{ 
+              padding: '12px 4px', 
+              fontSize: 14, 
+              fontWeight: 600, 
+              color: activeView === 'bookmarks' ? 'var(--primary)' : 'var(--text-muted)',
+              borderBottom: activeView === 'bookmarks' ? '2px solid var(--primary)' : '2px solid transparent',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              marginBottom: -1
+            }}
+          >
+            My Bookmarks {bookmarkedJobs.length > 0 && <span className="badge badge-blue" style={{ marginLeft: 6 }}>{bookmarkedJobs.length}</span>}
+          </button>
+        </div>
+
         {/* Header */}
         <div style={{ marginBottom: 32 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10 }}>
-            Job Match
+            {activeView === 'search' ? 'Job Match' : 'Saved Jobs'}
           </div>
           <h2 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 8 }}>
-            Find your best-fit roles
+            {activeView === 'search' ? 'Find your best-fit roles' : 'Track your applications'}
           </h2>
           <p style={{ fontSize: 14, maxWidth: 520 }}>
-            Search live job listings from LinkedIn and Naukri. Each result is automatically scored against your resume so you know where to apply first.
+            {activeView === 'search' 
+              ? 'Search live job listings from LinkedIn and Naukri. Each result is automatically scored against your resume.'
+              : 'View and manage all the job listings you have bookmarked. Keep track of where you want to apply.'}
           </p>
         </div>
 
-        {/* Search Card */}
-        <div className="card" style={{ marginBottom: 32 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.5fr 1.2fr', gap: 16, marginBottom: 20 }}>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label>Resume</label>
-              <select className="input-field" value={selectedResumeId} onChange={e => setSelectedResumeId(e.target.value)}>
-                {resumes.length === 0
-                  ? <option value="">No resumes found</option>
-                  : resumes.map(r => <option key={r.resumeId} value={r.resumeId}>{r.title}</option>)
-                }
-              </select>
+        {/* Search Card - Only in Search View */}
+        {activeView === 'search' && (
+          <div className="card" style={{ marginBottom: 32 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.5fr 1.2fr', gap: 16, marginBottom: 20 }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label>Resume</label>
+                <select className="input-field" value={selectedResumeId} onChange={e => setSelectedResumeId(e.target.value)}>
+                  {resumes.length === 0
+                    ? <option value="">No resumes found</option>
+                    : resumes.map(r => <option key={r.resumeId} value={r.resumeId}>{r.title}</option>)
+                  }
+                </select>
+              </div>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label>Job Title</label>
+                <input
+                  className="input-field"
+                  placeholder="e.g. Backend Engineer"
+                  value={jobTitle}
+                  onChange={e => setJobTitle(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleSearch('linkedin')}
+                />
+              </div>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label>Location (optional)</label>
+                <input
+                  className="input-field"
+                  placeholder="e.g. Remote, Bangalore"
+                  value={location}
+                  onChange={e => setLocation(e.target.value)}
+                />
+              </div>
             </div>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label>Job Title</label>
-              <input
-                className="input-field"
-                placeholder="e.g. Backend Engineer"
-                value={jobTitle}
-                onChange={e => setJobTitle(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleSearch('linkedin')}
-              />
-            </div>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label>Location (optional)</label>
-              <input
-                className="input-field"
-                placeholder="e.g. Remote, Bangalore"
-                value={location}
-                onChange={e => setLocation(e.target.value)}
-              />
-            </div>
-          </div>
 
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <button
-              className="btn btn-primary"
-              onClick={() => handleSearch('linkedin')}
-              disabled={loading}
-            >
-              {loading ? <span className="spinner"></span> : <SearchIcon />}
-              Search LinkedIn
-            </button>
-            <button
-              className="btn btn-outline"
-              onClick={() => handleSearch('naukri')}
-              disabled={loading}
-            >
-              {loading ? <span className="spinner spinner-dark"></span> : <SearchIcon />}
-              Search Naukri
-            </button>
-            {jobs.length > 0 && !loading && (
-              <span style={{ marginLeft: 8, fontSize: 13, color: 'var(--text-muted)' }}>
-                {jobs.length} result{jobs.length !== 1 ? 's' : ''}
-              </span>
-            )}
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <button
+                className="btn btn-primary"
+                onClick={() => handleSearch('linkedin')}
+                disabled={loading}
+              >
+                {loading ? <span className="spinner"></span> : <SearchIcon />}
+                Search LinkedIn
+              </button>
+              <button
+                className="btn btn-outline"
+                onClick={() => handleSearch('naukri')}
+                disabled={loading}
+              >
+                {loading ? <span className="spinner spinner-dark"></span> : <SearchIcon />}
+                Search Naukri
+              </button>
+              {jobs.length > 0 && !loading && (
+                <span style={{ marginLeft: 8, fontSize: 13, color: 'var(--text-muted)' }}>
+                  {jobs.length} result{jobs.length !== 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Loading State */}
         {loading && (
           <div style={{ textAlign: 'center', padding: '56px 0' }}>
             <div className="spinner spinner-dark" style={{ margin: '0 auto 14px', width: 24, height: 24 }}></div>
-            <p style={{ fontSize: 14 }}>Searching live job listings and scoring against your resume...</p>
+            <p style={{ fontSize: 14 }}>{activeView === 'search' ? 'Searching live job listings and scoring against your resume...' : 'Fetching your saved jobs...'}</p>
           </div>
         )}
 

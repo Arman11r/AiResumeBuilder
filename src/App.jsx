@@ -10,6 +10,7 @@ import CoverLetter from './pages/CoverLetter';
 import Profile from './pages/Profile';
 import Admin from './pages/Admin';
 import AiHistory from './pages/AiHistory';
+import PublicGallery from './pages/PublicGallery';
 
 const PrivateRoute = ({ children }) => {
     const { user, loading } = useContext(AuthContext);
@@ -36,6 +37,7 @@ export default function App() {
                 <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
                 <Route path="/ai-history" element={<PrivateRoute><AiHistory /></PrivateRoute>} />
                 <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
+                <Route path="/gallery" element={<PublicGallery />} />
             </Routes>
         </BrowserRouter>
     );

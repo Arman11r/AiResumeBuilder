@@ -3,6 +3,8 @@ import { AuthContext } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import { pushNotification } from '../services/notify';
+import NotificationDropdown from '../components/NotificationDropdown';
 
 export default function Profile() {
     const { user, logout } = useContext(AuthContext);
@@ -24,7 +26,12 @@ export default function Profile() {
     const handleUpdateProfile = async () => {
         try {
             await api.put('/auth/profile', { fullName, phone: profile.phone });
-            showToast('Profile updated', 'success');
+            showToast('Profile updated successfully', 'success');
+            pushNotification({
+                recipientId: user.userId,
+                type: 'PROFILE_UPDATED',
+                message: `Your profile details have been updated. Display name is now set to "${fullName}".`,
+            });
         } catch (err) { showToast('Update failed', 'error'); }
     };
 
@@ -32,19 +39,29 @@ export default function Profile() {
         if (!currentPassword || !password) return showToast('Please fill in both password fields', 'error');
         try {
             await api.put('/auth/password', { currentPassword, newPassword: password });
-            showToast('Password updated', 'success');
+            showToast('Password updated successfully', 'success');
             setPassword('');
             setCurrentPassword('');
+            pushNotification({
+                recipientId: user.userId,
+                type: 'PASSWORD_CHANGED',
+                message: 'Your account password was changed successfully. If you did not initiate this, please contact support.',
+            });
         } catch (err) { showToast(err.response?.data?.message || 'Password change failed', 'error'); }
     };
 
     const handleUpgrade = async () => {
         try {
             await api.put('/auth/subscription', { plan: 'PREMIUM' });
-            showToast('Upgraded to PREMIUM plan!', 'success');
+            showToast('🎉 Upgraded to PREMIUM plan!', 'success');
+            pushNotification({
+                recipientId: user.userId,
+                type: 'PLAN_UPGRADED',
+                message: 'Welcome to ResumeAI Premium! You now have unlimited AI calls, exports, and access to all premium templates.',
+            });
             setTimeout(() => {
                 logout(); // Logout to refresh claims
-            }, 2000);
+            }, 2500);
         } catch (err) { showToast('Upgrade failed', 'error'); }
     };
 
@@ -54,6 +71,9 @@ export default function Profile() {
         <div>
             <nav className="navbar">
                 <div className="logo" style={{ cursor: 'pointer' }} onClick={() => navigate('/dashboard')}>← Dashboard</div>
+                <div className="nav-links">
+                    <NotificationDropdown userId={user.userId} />
+                </div>
             </nav>
             <div className="dashboard-container fade-in" style={{ maxWidth: 600 }}>
                 <h2>My Profile</h2>

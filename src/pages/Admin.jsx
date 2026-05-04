@@ -3,162 +3,445 @@ import { AuthContext } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import { pushNotification } from '../services/notify';
+
+/* ── tiny helpers ── */
+const PlanBadge = ({ plan }) => (
+  <span style={{
+    background: plan === 'PREMIUM' ? '#fef3c7' : '#f1f5f9',
+    color: plan === 'PREMIUM' ? '#d97706' : '#64748b',
+    padding: '2px 9px', borderRadius: 999, fontSize: 11, fontWeight: 700,
+  }}>{plan}</span>
+);
+
+const StatusDot = ({ active }) => (
+  <span style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:12, fontWeight:600,
+    color: active ? '#0d9c6e' : '#dc2626' }}>
+    <span style={{ width:7, height:7, borderRadius:'50%',
+      background: active ? '#0d9c6e' : '#dc2626', display:'inline-block' }} />
+    {active ? 'Active' : 'Suspended'}
+  </span>
+);
+
+const StatCard = ({ label, value, sub, color = 'var(--primary)' }) => (
+  <div style={{ background:'#fff', border:'1px solid #e4e7ec', borderRadius:14,
+    padding:'20px 24px', flex:1 }}>
+    <div style={{ fontSize:11, fontWeight:700, color:'#6b7280', textTransform:'uppercase',
+      letterSpacing:'0.06em', marginBottom:8 }}>{label}</div>
+    <div style={{ fontSize:36, fontWeight:900, color, letterSpacing:'-0.04em',
+      lineHeight:1 }}>{value}</div>
+    {sub && <div style={{ fontSize:12, color:'#9ca3af', marginTop:6 }}>{sub}</div>}
+  </div>
+);
 
 export default function Admin() {
-    const { user } = useContext(AuthContext);
-    const { showToast } = useToast();
-    const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState('users');
-    const [templates, setTemplates] = useState([]);
+  const { user } = useContext(AuthContext);
+  const { showToast } = useToast();
+  const navigate = useNavigate();
+  const [tab, setTab] = useState('users');
 
-    useEffect(() => {
-        const loadAdminData = async () => {
-            try {
-                const tRes = await api.get('/templates');
-                setTemplates(tRes.data || []);
-            } catch (err) {
-                // Ignore error if not authorized
-            }
-        };
-        loadAdminData();
-    }, []);
+  /* users */
+  const [users, setUsers] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [search, setSearch] = useState('');
+  const [editingUser, setEditingUser] = useState(null);
 
-    return (
-        <div>
-            <nav className="navbar" style={{ background: '#0f172a', color: 'white' }}>
-                <div className="logo" style={{ color: 'white', cursor: 'pointer' }} onClick={() => navigate('/dashboard')}>← Return to Dashboard</div>
-                <div style={{ fontWeight: 700 }}>ResumeAI Admin Portal</div>
-            </nav>
-            <div className="builder-layout">
-                {/* Admin Sidebar */}
-                <div className="builder-sidebar" style={{ width: 250, background: '#1e293b', color: 'white', borderRight: 'none' }}>
-                    <div className="sidebar-nav">
-                        <div className="nav-item" style={{ background: activeTab === 'users' ? '#334155' : 'transparent', color: 'white' }} onClick={() => setActiveTab('users')}>
-                            👥 User Management
-                        </div>
-                        <div className="nav-item" style={{ background: activeTab === 'templates' ? '#334155' : 'transparent', color: 'white' }} onClick={() => setActiveTab('templates')}>
-                            📄 Template Editor
-                        </div>
-                        <div className="nav-item" style={{ background: activeTab === 'analytics' ? '#334155' : 'transparent', color: 'white' }} onClick={() => setActiveTab('analytics')}>
-                            📈 Platform Analytics
-                        </div>
-                        <div className="nav-item" style={{ background: activeTab === 'ai' ? '#334155' : 'transparent', color: 'white' }} onClick={() => setActiveTab('ai')}>
-                            🤖 AI Usage Stats
-                        </div>
-                    </div>
-                </div>
+  /* templates */
+  const [templates, setTemplates] = useState([]);
+  const [showNewTemplate, setShowNewTemplate] = useState(false);
+  const [tmpl, setTmpl] = useState({ name:'', description:'', category:'PROFESSIONAL', isPremium:false, htmlLayout:'', cssStyles:'' });
 
-                {/* Admin Content */}
-                <div className="builder-editor" style={{ flex: 1, padding: 40, background: '#f8fafc' }}>
-                    
-                    {activeTab === 'users' && (
-                        <div className="fade-in">
-                            <h2>User Management</h2>
-                            <p className="text-muted">Manage all registered accounts, roles, and subscriptions.</p>
-                            <div className="card">
-                                <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
-                                    <thead>
-                                        <tr style={{ borderBottom: '2px solid var(--border)' }}>
-                                            <th style={{ padding: 12 }}>User ID</th>
-                                            <th style={{ padding: 12 }}>Email</th>
-                                            <th style={{ padding: 12 }}>Role</th>
-                                            <th style={{ padding: 12 }}>Plan</th>
-                                            <th style={{ padding: 12 }}>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                                            <td style={{ padding: 12 }}>usr_10293</td>
-                                            <td style={{ padding: 12 }}>testdev@resumeai.com</td>
-                                            <td style={{ padding: 12 }}>USER</td>
-                                            <td style={{ padding: 12 }}><span style={{ background: '#d1fae5', color: '#065f46', padding: '2px 8px', borderRadius: 4, fontSize: 12, fontWeight: 700 }}>FREE</span></td>
-                                            <td style={{ padding: 12 }}>
-                                                <button className="btn btn-outline" style={{ fontSize: 12, padding: '4px 8px' }}>Manage</button>
-                                            </td>
-                                        </tr>
-                                        <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                                            <td style={{ padding: 12 }}>usr_99124</td>
-                                            <td style={{ padding: 12 }}>pro@resumeai.com</td>
-                                            <td style={{ padding: 12 }}>USER</td>
-                                            <td style={{ padding: 12 }}><span style={{ background: '#fef3c7', color: '#d97706', padding: '2px 8px', borderRadius: 4, fontSize: 12, fontWeight: 700 }}>PREMIUM</span></td>
-                                            <td style={{ padding: 12 }}>
-                                                <button className="btn btn-outline" style={{ fontSize: 12, padding: '4px 8px' }}>Manage</button>
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    )}
+  /* analytics */
+  const [stats, setStats] = useState(null);
+  const [allResumes, setAllResumes] = useState([]);
 
-                    {activeTab === 'templates' && (
-                        <div className="fade-in">
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                                <div>
-                                    <h2>Template Management</h2>
-                                    <p className="text-muted">Create, edit, and deactivate system resume templates.</p>
-                                </div>
-                                <button className="btn btn-primary">+ New Template</button>
-                            </div>
-                            <div className="resume-grid">
-                                {templates.map(t => (
-                                    <div key={t.templateId} className="resume-card" style={{ padding: 20 }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <h3 style={{ margin: 0 }}>{t.name}</h3>
-                                            <span style={{ background: t.isPremium ? '#fef3c7' : '#d1fae5', color: t.isPremium ? '#d97706' : '#059669', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700 }}>
-                                                {t.isPremium ? 'PREMIUM' : 'FREE'}
-                                            </span>
-                                        </div>
-                                        <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '10px 0' }}>Category: {t.category}</p>
-                                        <p style={{ fontSize: 13, margin: '0 0 15px 0' }}>Usage Count: {t.usageCount}</p>
-                                        <div style={{ display: 'flex', gap: 10 }}>
-                                            <button className="btn btn-outline" style={{ flex: 1, padding: 6, fontSize: 12 }}>Edit HTML/CSS</button>
-                                            <button className="btn btn-danger" style={{ padding: 6, fontSize: 12 }}>Deactivate</button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
+  /* ── loaders ── */
+  const loadUsers = async () => {
+    setUsersLoading(true);
+    try { const r = await api.get('/auth/admin/users'); setUsers(r.data || []); }
+    catch { showToast('Failed to load users', 'error'); }
+    finally { setUsersLoading(false); }
+  };
 
-                    {activeTab === 'analytics' && (
-                        <div className="fade-in">
-                            <h2>Platform Analytics</h2>
-                            <div style={{ display: 'flex', gap: 20, marginTop: 20 }}>
-                                <div className="card" style={{ flex: 1, textAlign: 'center' }}>
-                                    <div style={{ fontSize: 40, fontWeight: 800, color: 'var(--primary)' }}>1,248</div>
-                                    <div style={{ color: 'var(--text-muted)' }}>Total Users</div>
-                                </div>
-                                <div className="card" style={{ flex: 1, textAlign: 'center' }}>
-                                    <div style={{ fontSize: 40, fontWeight: 800, color: 'var(--success)' }}>5,932</div>
-                                    <div style={{ color: 'var(--text-muted)' }}>Resumes Created</div>
-                                </div>
-                                <div className="card" style={{ flex: 1, textAlign: 'center' }}>
-                                    <div style={{ fontSize: 40, fontWeight: 800, color: '#8b5cf6' }}>8,102</div>
-                                    <div style={{ color: 'var(--text-muted)' }}>PDF Exports</div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
+  const loadStats = async () => {
+    try {
+      const [sRes, tRes, rRes] = await Promise.all([
+        api.get('/auth/admin/stats'),
+        api.get('/templates'),
+        api.get('/resumes/public').catch(() => ({ data: [] })),
+      ]);
+      // Also get total resume count via all-public + estimate
+      setStats({ ...sRes.data, publicResumes: (rRes.data || []).length });
+      setTemplates(tRes.data || []);
+    } catch (e) {
+      showToast('Failed to load analytics', 'error');
+    }
+  };
 
-                    {activeTab === 'ai' && (
-                        <div className="fade-in">
-                            <h2>AI Usage Statistics</h2>
-                            <div className="card">
-                                <h3>API Token Consumption</h3>
-                                <p style={{ fontSize: 14 }}><strong>GPT-4o:</strong> 24.5M Tokens used this month ($122.50 estimated cost)</p>
-                                <p style={{ fontSize: 14 }}><strong>Claude 3.5 Sonnet:</strong> 1.2M Tokens used this month ($3.60 estimated cost)</p>
-                                <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '20px 0' }} />
-                                <h3>Quota Utilization</h3>
-                                <div style={{ height: 20, background: '#e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
-                                    <div style={{ width: '65%', background: 'var(--ai-glow)', height: '100%' }}></div>
-                                </div>
-                                <p style={{ fontSize: 12, textAlign: 'right', marginTop: 5 }}>65% of monthly OpenAI limit reached</p>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </div>
+  useEffect(() => { loadUsers(); loadStats(); }, []);
+
+  /* ── user actions ── */
+  const handlePlanChange = async (u, plan) => {
+    try {
+      await api.put(`/auth/admin/users/${u.userId}/subscription`, { plan });
+      showToast(`${u.email} → ${plan}`, 'success');
+      pushNotification({ recipientId: u.userId, type: 'PLAN_UPGRADED',
+        message: `An admin updated your subscription to ${plan}.` });
+      loadUsers();
+    } catch { showToast('Failed to update plan', 'error'); }
+  };
+
+  const handleSuspend = async (u, suspend) => {
+    try {
+      await api.put(`/auth/admin/users/${u.userId}/suspend`, { suspend });
+      showToast(suspend ? `${u.email} suspended` : `${u.email} reactivated`, suspend ? 'warning' : 'success');
+      loadUsers();
+    } catch { showToast('Failed to update status', 'error'); }
+  };
+
+  const handleDelete = async (u) => {
+    if (!window.confirm(`Permanently delete ${u.email}?`)) return;
+    try {
+      await api.delete(`/auth/admin/users/${u.userId}`);
+      showToast('User deleted', 'success');
+      loadUsers();
+    } catch { showToast('Failed to delete user', 'error'); }
+  };
+
+  /* ── template actions ── */
+  const loadTemplates = async () => {
+    try { const r = await api.get('/templates'); setTemplates(r.data || []); }
+    catch { showToast('Failed to load templates', 'error'); }
+  };
+
+  const handleCreateTemplate = async () => {
+    if (!tmpl.name || !tmpl.category) return showToast('Name & category required', 'error');
+    try {
+      await api.post('/templates', tmpl);
+      showToast('Template created', 'success');
+      setShowNewTemplate(false);
+      setTmpl({ name:'', description:'', category:'PROFESSIONAL', isPremium:false, htmlLayout:'', cssStyles:'' });
+      loadTemplates();
+    } catch { showToast('Failed to create template', 'error'); }
+  };
+
+  const handleDeactivateTemplate = async (id) => {
+    try {
+      await api.put(`/templates/${id}/deactivate`);
+      showToast('Template deactivated', 'success');
+      loadTemplates();
+    } catch { showToast('Failed to deactivate', 'error'); }
+  };
+
+  /* ── derived ── */
+  const filtered = users.filter(u =>
+    u.email?.toLowerCase().includes(search.toLowerCase()) ||
+    u.fullName?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const CATEGORIES = ['PROFESSIONAL','CREATIVE','MODERN','MINIMALIST','ATS_OPTIMISED'];
+
+  /* ── sidebar tabs ── */
+  const TABS = [
+    { id:'users',     icon:'👥', label:'User Management' },
+    { id:'templates', icon:'📄', label:'Templates' },
+    { id:'analytics', icon:'📊', label:'Analytics' },
+  ];
+
+  return (
+    <div style={{ minHeight:'100vh', display:'flex', flexDirection:'column' }}>
+      {/* Top bar */}
+      <nav style={{ background:'#0f172a', borderBottom:'1px solid #1e293b',
+        padding:'0 32px', height:56, display:'flex', alignItems:'center',
+        justifyContent:'space-between', position:'sticky', top:0, zIndex:100 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:24 }}>
+          <button onClick={() => navigate('/dashboard')}
+            style={{ background:'none', border:'none', color:'#94a3b8',
+              fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', gap:6 }}>
+            ← Dashboard
+          </button>
+          <div style={{ width:1, height:20, background:'#1e293b' }} />
+          <span style={{ color:'#e2e8f0', fontWeight:700, fontSize:14, letterSpacing:'-0.02em' }}>
+            ⚙️ ResumeAI Admin Portal
+          </span>
         </div>
-    );
+        <span style={{ fontSize:12, color:'#64748b' }}>{user?.email}</span>
+      </nav>
+
+      <div style={{ display:'flex', flex:1 }}>
+        {/* Sidebar */}
+        <div style={{ width:220, background:'#1e293b', padding:'20px 0', flexShrink:0 }}>
+          {TABS.map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              style={{ width:'100%', padding:'11px 20px', background: tab===t.id ? '#334155' : 'transparent',
+                color: tab===t.id ? '#e2e8f0' : '#94a3b8', border:'none', cursor:'pointer',
+                fontSize:13.5, fontWeight:500, display:'flex', alignItems:'center', gap:10,
+                textAlign:'left', fontFamily:'inherit', transition:'background 0.15s' }}>
+              {t.icon} {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Content */}
+        <div style={{ flex:1, padding:40, background:'#f8fafc', overflowY:'auto' }}>
+
+          {/* ── USERS ── */}
+          {tab === 'users' && (
+            <div className="fade-in">
+              <div style={{ marginBottom:24 }}>
+                <h2 style={{ marginBottom:4 }}>User Management</h2>
+                <p style={{ fontSize:13 }}>View, update subscriptions, suspend, or permanently delete accounts.</p>
+              </div>
+
+              <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:20 }}>
+                <input
+                  className="input-field"
+                  style={{ maxWidth:320 }}
+                  placeholder="Search by name or email…"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                />
+                <span style={{ fontSize:13, color:'#6b7280' }}>{filtered.length} users</span>
+              </div>
+
+              <div className="card" style={{ padding:0, overflow:'hidden' }}>
+                <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
+                  <thead>
+                    <tr style={{ background:'#f8fafc', borderBottom:'1px solid #e4e7ec' }}>
+                      {['Name / Email','Role','Plan','Status','Joined','Actions'].map(h => (
+                        <th key={h} style={{ padding:'11px 16px', textAlign:'left',
+                          fontSize:11, fontWeight:700, color:'#6b7280', textTransform:'uppercase',
+                          letterSpacing:'0.05em' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {usersLoading ? (
+                      <tr><td colSpan={6} style={{ padding:40, textAlign:'center' }}>
+                        <div className="spinner spinner-dark" style={{ margin:'0 auto' }} />
+                      </td></tr>
+                    ) : filtered.map(u => (
+                      <tr key={u.userId} style={{ borderBottom:'1px solid #f1f5f9',
+                        background: u.userId === editingUser ? '#eff6ff' : '#fff' }}>
+                        <td style={{ padding:'12px 16px' }}>
+                          <div style={{ fontWeight:600, color:'#0d1117' }}>{u.fullName || '—'}</div>
+                          <div style={{ fontSize:12, color:'#6b7280' }}>{u.email}</div>
+                        </td>
+                        <td style={{ padding:'12px 16px' }}>
+                          <span style={{ fontSize:11, fontWeight:700,
+                            color: u.role==='ADMIN' ? '#7c3aed' : '#374151',
+                            background: u.role==='ADMIN' ? '#ede9fe' : '#f3f4f6',
+                            padding:'2px 8px', borderRadius:999 }}>{u.role}</span>
+                        </td>
+                        <td style={{ padding:'12px 16px' }}><PlanBadge plan={u.subscriptionPlan} /></td>
+                        <td style={{ padding:'12px 16px' }}><StatusDot active={u.active} /></td>
+                        <td style={{ padding:'12px 16px', color:'#6b7280' }}>
+                          {u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'}) : '—'}
+                        </td>
+                        <td style={{ padding:'12px 16px' }}>
+                          <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+                            <select
+                              value={u.subscriptionPlan}
+                              onChange={e => handlePlanChange(u, e.target.value)}
+                              style={{ fontSize:11, padding:'3px 6px', borderRadius:6,
+                                border:'1px solid #d1d5db', cursor:'pointer', fontFamily:'inherit' }}>
+                              <option value="FREE">FREE</option>
+                              <option value="PREMIUM">PREMIUM</option>
+                            </select>
+                            <button
+                              onClick={() => handleSuspend(u, u.active)}
+                              className="btn btn-sm"
+                              style={{ fontSize:11, padding:'3px 8px',
+                                background: u.active ? '#fef3c7' : '#d1fae5',
+                                color: u.active ? '#d97706' : '#059669',
+                                border: `1px solid ${u.active ? '#fcd34d' : '#6ee7b7'}` }}>
+                              {u.active ? 'Suspend' : 'Reactivate'}
+                            </button>
+                            {u.role !== 'ADMIN' && (
+                              <button onClick={() => handleDelete(u)}
+                                className="btn btn-danger btn-sm"
+                                style={{ fontSize:11, padding:'3px 8px' }}>
+                                Delete
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ── TEMPLATES ── */}
+          {tab === 'templates' && (
+            <div className="fade-in">
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:24 }}>
+                <div>
+                  <h2 style={{ marginBottom:4 }}>Template Management</h2>
+                  <p style={{ fontSize:13 }}>Create, edit, or deactivate resume templates including HTML/CSS layouts.</p>
+                </div>
+                <button className="btn btn-primary" onClick={() => setShowNewTemplate(!showNewTemplate)}>
+                  {showNewTemplate ? '✕ Cancel' : '+ New Template'}
+                </button>
+              </div>
+
+              {showNewTemplate && (
+                <div className="card fade-in" style={{ marginBottom:24, borderLeft:'3px solid var(--primary)' }}>
+                  <h3 style={{ marginBottom:16 }}>Create New Template</h3>
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16 }}>
+                    <div className="form-group" style={{ margin:0 }}>
+                      <label>Template Name *</label>
+                      <input className="input-field" value={tmpl.name}
+                        onChange={e => setTmpl({...tmpl, name:e.target.value})}
+                        placeholder="e.g. Modern Blue" />
+                    </div>
+                    <div className="form-group" style={{ margin:0 }}>
+                      <label>Category *</label>
+                      <select className="input-field" value={tmpl.category}
+                        onChange={e => setTmpl({...tmpl, category:e.target.value})}>
+                        {CATEGORIES.map(c => <option key={c} value={c}>{c.replace('_',' ')}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label>Description</label>
+                    <input className="input-field" value={tmpl.description}
+                      onChange={e => setTmpl({...tmpl, description:e.target.value})}
+                      placeholder="Brief description of the template" />
+                  </div>
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16 }}>
+                    <div className="form-group" style={{ margin:0 }}>
+                      <label>HTML Layout</label>
+                      <textarea className="input-field" rows={5} value={tmpl.htmlLayout}
+                        onChange={e => setTmpl({...tmpl, htmlLayout:e.target.value})}
+                        placeholder="Paste HTML template code…" style={{ fontFamily:'monospace', fontSize:12 }} />
+                    </div>
+                    <div className="form-group" style={{ margin:0 }}>
+                      <label>CSS Styles</label>
+                      <textarea className="input-field" rows={5} value={tmpl.cssStyles}
+                        onChange={e => setTmpl({...tmpl, cssStyles:e.target.value})}
+                        placeholder="Paste CSS styles…" style={{ fontFamily:'monospace', fontSize:12 }} />
+                    </div>
+                  </div>
+                  <div style={{ display:'flex', alignItems:'center', gap:16 }}>
+                    <label style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, cursor:'pointer' }}>
+                      <input type="checkbox" checked={tmpl.isPremium}
+                        onChange={e => setTmpl({...tmpl, isPremium:e.target.checked})} />
+                      Premium Template
+                    </label>
+                    <button className="btn btn-primary" onClick={handleCreateTemplate}>Create Template</button>
+                  </div>
+                </div>
+              )}
+
+              <div className="resume-grid">
+                {templates.map(t => (
+                  <div key={t.templateId} className="resume-card" style={{ padding:20 }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:10 }}>
+                      <h3 style={{ margin:0, fontSize:14 }}>{t.name}</h3>
+                      <div style={{ display:'flex', gap:6 }}>
+                        <PlanBadge plan={t.isPremium ? 'PREMIUM' : 'FREE'} />
+                        {!t.isActive && (
+                          <span style={{ fontSize:10, fontWeight:700, background:'#fee2e2',
+                            color:'#dc2626', padding:'2px 6px', borderRadius:999 }}>INACTIVE</span>
+                        )}
+                      </div>
+                    </div>
+                    <p style={{ fontSize:12, color:'#6b7280', margin:'0 0 6px 0' }}>{t.description || '—'}</p>
+                    <div style={{ fontSize:11, color:'#94a3b8', marginBottom:12 }}>
+                      Category: {t.category} · Used {t.usageCount} times
+                    </div>
+                    <div style={{ display:'flex', gap:8 }}>
+                      {t.isActive && (
+                        <button className="btn btn-danger btn-sm"
+                          style={{ fontSize:11 }}
+                          onClick={() => handleDeactivateTemplate(t.templateId)}>
+                          Deactivate
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {templates.length === 0 && (
+                <div className="empty-state"><h3>No templates yet</h3><p>Create your first template above.</p></div>
+              )}
+            </div>
+          )}
+
+          {/* ── ANALYTICS ── */}
+          {tab === 'analytics' && (
+            <div className="fade-in">
+              <div style={{ marginBottom:24 }}>
+                <h2 style={{ marginBottom:4 }}>Platform Analytics</h2>
+                <p style={{ fontSize:13 }}>Live metrics from all microservices.</p>
+              </div>
+
+              {stats ? (
+                <>
+                  <div style={{ display:'flex', gap:16, marginBottom:24, flexWrap:'wrap' }}>
+                    <StatCard label="Total Users" value={stats.totalUsers} sub="all time registrations" color="var(--primary)" />
+                    <StatCard label="Active Users" value={stats.activeUsers} sub="not suspended" color="#0d9c6e" />
+                    <StatCard label="Premium Users" value={stats.premiumUsers} sub="paid subscribers" color="#d97706" />
+                    <StatCard label="Free Users" value={stats.freeUsers} sub="on free plan" color="#6b7280" />
+                    <StatCard label="Public Resumes" value={stats.publicResumes} sub="in gallery" color="#8b5cf6" />
+                  </div>
+
+                  {/* Conversion bar */}
+                  <div className="card" style={{ marginBottom:24 }}>
+                    <h3 style={{ marginBottom:16 }}>Subscription Breakdown</h3>
+                    <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:8 }}>
+                      <span style={{ fontSize:13, color:'#374151', width:80 }}>Premium</span>
+                      <div style={{ flex:1, height:12, background:'#f1f5f9', borderRadius:99, overflow:'hidden' }}>
+                        <div style={{ width:`${stats.totalUsers > 0 ? (stats.premiumUsers/stats.totalUsers*100).toFixed(1) : 0}%`,
+                          height:'100%', background:'linear-gradient(90deg,#d97706,#f59e0b)', borderRadius:99, transition:'width 0.8s ease' }} />
+                      </div>
+                      <span style={{ fontSize:13, fontWeight:700, color:'#d97706', width:50 }}>
+                        {stats.totalUsers > 0 ? (stats.premiumUsers/stats.totalUsers*100).toFixed(1) : 0}%
+                      </span>
+                    </div>
+                    <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                      <span style={{ fontSize:13, color:'#374151', width:80 }}>Free</span>
+                      <div style={{ flex:1, height:12, background:'#f1f5f9', borderRadius:99, overflow:'hidden' }}>
+                        <div style={{ width:`${stats.totalUsers > 0 ? (stats.freeUsers/stats.totalUsers*100).toFixed(1) : 0}%`,
+                          height:'100%', background:'linear-gradient(90deg,#3b5bdb,#6366f1)', borderRadius:99, transition:'width 0.8s ease' }} />
+                      </div>
+                      <span style={{ fontSize:13, fontWeight:700, color:'var(--primary)', width:50 }}>
+                        {stats.totalUsers > 0 ? (stats.freeUsers/stats.totalUsers*100).toFixed(1) : 0}%
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Templates summary */}
+                  <div style={{ display:'flex', gap:16 }}>
+                    <div className="card" style={{ flex:1 }}>
+                      <h3 style={{ marginBottom:16 }}>Template Stats</h3>
+                      <div style={{ display:'flex', gap:24 }}>
+                        <div><div style={{ fontSize:28, fontWeight:800, color:'var(--primary)' }}>{templates.length}</div>
+                          <div style={{ fontSize:12, color:'#6b7280' }}>Total Templates</div></div>
+                        <div><div style={{ fontSize:28, fontWeight:800, color:'#0d9c6e' }}>{templates.filter(t=>t.isActive).length}</div>
+                          <div style={{ fontSize:12, color:'#6b7280' }}>Active</div></div>
+                        <div><div style={{ fontSize:28, fontWeight:800, color:'#d97706' }}>{templates.filter(t=>t.isPremium).length}</div>
+                          <div style={{ fontSize:12, color:'#6b7280' }}>Premium</div></div>
+                        <div><div style={{ fontSize:28, fontWeight:800, color:'#6b7280' }}>{templates.reduce((a,t)=>a+(t.usageCount||0),0)}</div>
+                          <div style={{ fontSize:12, color:'#6b7280' }}>Total Uses</div></div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div style={{ textAlign:'center', padding:64 }}>
+                  <div className="spinner spinner-dark" style={{ margin:'0 auto 16px' }} />
+                  <p>Loading analytics…</p>
+                </div>
+              )}
+            </div>
+          )}
+
+        </div>
+      </div>
+    </div>
+  );
 }

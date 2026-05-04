@@ -3,6 +3,7 @@ import { AuthContext } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import { pushNotification } from '../services/notify';
 import NotificationDropdown from '../components/NotificationDropdown';
 import QuotaWidget from '../components/QuotaWidget';
 
@@ -54,7 +55,13 @@ export default function Dashboard() {
         templateId: 'tmpl-001',
         language: 'en',
       });
-      showToast('Resume created', 'success');
+      showToast('Resume created successfully!', 'success');
+      pushNotification({
+        recipientId: user.userId,
+        type: 'RESUME_CREATED',
+        message: 'Your new resume “Untitled Resume” has been created. Start adding your details!',
+        relatedId: res.data.resumeId,
+      });
       navigate(`/builder/${res.data.resumeId}`);
     } catch (err) {
       showToast('Error creating resume', 'error');
@@ -65,8 +72,14 @@ export default function Dashboard() {
     e.stopPropagation();
     if (!window.confirm('Delete this resume permanently?')) return;
     try {
+      const resume = resumes.find(r => r.resumeId === id);
       await api.delete(`/resumes/${id}`);
       showToast('Resume deleted', 'success');
+      pushNotification({
+        recipientId: user.userId,
+        type: 'RESUME_DELETED',
+        message: `Resume “${resume?.title || 'Untitled'}” has been permanently deleted.`,
+      });
       fetchResumes();
     } catch (err) {
       showToast('Error deleting', 'error');
@@ -93,6 +106,7 @@ export default function Dashboard() {
         <div className="nav-links">
           <button className="nav-link" onClick={() => navigate('/job-match')}>Job Match</button>
           <button className="nav-link" onClick={() => navigate('/cover-letter')}>Cover Letters</button>
+          <button className="nav-link" onClick={() => navigate('/gallery')}>🌐 Gallery</button>
           <div className="nav-divider"></div>
           <NotificationDropdown userId={user.userId} />
           <button className="nav-link" onClick={() => navigate('/profile')}>Profile</button>

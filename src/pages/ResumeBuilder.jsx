@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useToast } from '../context/ToastContext';
 import { AuthContext } from '../context/AuthContext';
+import { pushNotification } from '../services/notify';
 import ResumePreview from '../components/ResumePreview';
 import html2pdf from 'html2pdf.js';
 import { saveAs } from 'file-saver';
@@ -120,6 +121,12 @@ export default function ResumeBuilder() {
       await api.post('/sections', newSec);
       loadData();
       showToast(`${type} section added`, 'success');
+      pushNotification({
+        recipientId: user.userId,
+        type: 'SECTION_ADDED',
+        message: `A new “${type.charAt(0) + type.slice(1).toLowerCase()}” section was added to your resume.`,
+        relatedId: id,
+      });
     } catch (_) { showToast('Error adding section', 'error'); }
   };
 
@@ -134,9 +141,16 @@ export default function ResumeBuilder() {
 
   const handleDeleteSection = async (sectionId) => {
     try {
+      const sec = sections.find(s => s.sectionId === sectionId);
       await api.delete(`/sections/${sectionId}`);
       loadData();
       showToast('Section deleted', 'success');
+      pushNotification({
+        recipientId: user.userId,
+        type: 'SECTION_DELETED',
+        message: `Section “${sec?.title || 'Unknown'}” was removed from your resume.`,
+        relatedId: id,
+      });
     } catch (_) { showToast('Error deleting', 'error'); }
   };
 
@@ -151,7 +165,13 @@ export default function ResumeBuilder() {
       });
       if (sectionId && res.data.content) {
         await handleUpdateSection(sectionId, 'content', res.data.content);
-        showToast('AI content generated', 'success');
+        showToast('AI content generated ✨', 'success');
+        pushNotification({
+          recipientId: user.userId,
+          type: 'AI_CONTENT_GENERATED',
+          message: `AI successfully generated content for a resume section. Review and refine it to match your experience.`,
+          relatedId: id,
+        });
       }
       return res.data;
     } catch (err) {
@@ -167,13 +187,14 @@ export default function ResumeBuilder() {
     const res = await callAi('/ai/checkAts', { sectionContent: content, jobDescription: jobDesc });
     if (res) {
       setAtsResult(res);
-      api.post('/notifications', {
+      const score = res.score ?? 0;
+      const level = score >= 70 ? 'excellent' : score >= 50 ? 'moderate' : 'low';
+      pushNotification({
         recipientId: user.userId,
-        title: 'ATS Check Complete',
-        type: 'SYSTEM_ALERT',
-        message: `ATS check complete! Your score is ${res.score}%`,
+        type: 'ATS_COMPLETE',
+        message: `ATS check complete! Your match score is ${score}% (${level}). ${score < 70 ? 'Check the missing keywords tab to improve.' : 'Great job — your resume is highly optimised!'}`,
         relatedId: id,
-      }).catch(() => {});
+      });
     }
   };
 
@@ -247,19 +268,45 @@ export default function ResumeBuilder() {
         showToast('Document downloaded (.doc)', 'success');
       }
 
-      api.post('/notifications', {
+      pushNotification({
         recipientId: user.userId,
-        title: 'Export Ready',
         type: 'EXPORT_READY',
-        message: `Your ${format} export is ready!`,
+        message: `Your resume “${resume.title || 'Resume'}” has been exported as ${format}. Check your downloads folder.`,
         relatedId: id,
-      }).catch(() => {});
+      });
     } catch (err) {
       showToast('Export failed', 'error');
     } finally {
       setAiLoading(false);
     }
   };
+
+  const handlePublishToggle = async () => {
+    const willBePublic = !resume.public;
+    const endpoint = resume.public ? `/resumes/${id}/unpublish` : `/resumes/${id}/publish`;
+    // Optimistic update so button flips immediately
+    setResume(prev => ({ ...prev, public: willBePublic }));
+    try {
+      const res = await api.put(endpoint);
+      // Sync with server response (field is 'public' not 'isPublic' in JSON)
+      const nowPublic = res.data.public;
+      setResume(res.data);
+      showToast(nowPublic ? 'Resume published to gallery 🌐' : 'Resume unpublished', nowPublic ? 'success' : 'info');
+      pushNotification({
+        recipientId: user.userId,
+        type: nowPublic ? 'RESUME_PUBLISHED' : 'RESUME_UNPUBLISHED',
+        message: nowPublic
+          ? `Your resume "${resume.title}" is now live in the public gallery. Others can discover and view it!`
+          : `Your resume "${resume.title}" has been removed from the public gallery.`,
+        relatedId: id,
+      });
+    } catch (_) {
+      // Revert optimistic update on error
+      setResume(prev => ({ ...prev, public: !willBePublic }));
+      showToast('Failed to update publish status', 'error');
+    }
+  };
+
 
 
   if (!resume) return (
@@ -293,6 +340,39 @@ export default function ResumeBuilder() {
           </button>
         </div>
 
+        {/* Publish Toggle */}
+        <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            Visibility
+          </div>
+          <button
+            onClick={handlePublishToggle}
+            style={{
+              width: '100%',
+              padding: '8px 12px',
+              borderRadius: 8,
+              border: `1.5px solid ${resume.public ? 'var(--success)' : 'var(--border-strong)'}`,
+              background: resume.public ? 'var(--success-light)' : 'var(--surface)',
+              color: resume.public ? 'var(--success)' : 'var(--text-muted)',
+              fontFamily: 'inherit',
+              fontSize: 12.5,
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 7,
+              transition: 'all 0.2s',
+            }}
+          >
+            <span style={{ fontSize: 14 }}>{resume.public ? '🌐' : '🔒'}</span>
+            {resume.public ? 'Published — click to unpublish' : 'Private — click to publish'}
+          </button>
+          {resume.public && (
+            <div style={{ fontSize: 11, color: 'var(--success)', marginTop: 5, textAlign: 'center' }}>
+              Live in Public Gallery
+            </div>
+          )}
+        </div>
 
         {/* Quota Widget */}
         <div style={{ padding: '0 16px', marginTop: 16 }}>
