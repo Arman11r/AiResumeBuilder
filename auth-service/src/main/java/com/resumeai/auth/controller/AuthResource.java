@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -99,26 +100,66 @@ public class AuthResource {
         return ResponseEntity.noContent().build();
     }
 
-    // ── Inter-service endpoint (called by resume-service, ai-service, etc.) ──
+    // ── Inter-service endpoints ───────────────────────────────────────────────
 
-    /**
-     * Called by other microservices to check a user's subscription plan.
-     * GET /auth/users/{userId}/subscription
-     * Returns: { "subscriptionPlan": "FREE" | "PREMIUM" }
-     */
     @GetMapping("/users/{userId}/subscription")
     public ResponseEntity<Map<String, String>> getSubscription(@PathVariable String userId) {
         UserResponseDTO user = authService.getUserById(userId);
         return ResponseEntity.ok(Map.of("subscriptionPlan", user.getSubscriptionPlan()));
     }
 
-    /**
-     * Called by other microservices to get full user info.
-     * GET /auth/users/{userId}
-     */
     @GetMapping("/users/{userId}")
     public ResponseEntity<UserResponseDTO> getUserById(@PathVariable String userId) {
         return ResponseEntity.ok(authService.getUserById(userId));
+    }
+
+    // ── Admin endpoints ───────────────────────────────────────────────────────
+
+    @GetMapping("/admin/users")
+    public ResponseEntity<List<UserResponseDTO>> adminListUsers(
+            @RequestHeader("Authorization") String authHeader) {
+        requireAdmin(authHeader);
+        return ResponseEntity.ok(authService.getAllUsers());
+    }
+
+    @PutMapping("/admin/users/{targetUserId}/subscription")
+    public ResponseEntity<Void> adminUpdateSubscription(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable String targetUserId,
+            @RequestBody Map<String, String> body) {
+        requireAdmin(authHeader);
+        String plan = body.get("plan");
+        if (plan == null || plan.isBlank())
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "plan field is required");
+        authService.adminUpdateSubscription(targetUserId, plan);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/admin/users/{targetUserId}/suspend")
+    public ResponseEntity<Void> adminSuspendUser(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable String targetUserId,
+            @RequestBody Map<String, Boolean> body) {
+        requireAdmin(authHeader);
+        boolean suspend = Boolean.TRUE.equals(body.get("suspend"));
+        authService.adminSuspendUser(targetUserId, suspend);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/admin/users/{targetUserId}")
+    public ResponseEntity<Void> adminDeleteUser(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable String targetUserId) {
+        requireAdmin(authHeader);
+        authService.adminDeleteUser(targetUserId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/admin/stats")
+    public ResponseEntity<Map<String, Object>> adminStats(
+            @RequestHeader("Authorization") String authHeader) {
+        requireAdmin(authHeader);
+        return ResponseEntity.ok(authService.getPlatformStats());
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -136,5 +177,16 @@ public class AuthResource {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid or expired token");
         }
         return jwtUtil.extractUserId(token);
+    }
+
+    private void requireAdmin(String authHeader) {
+        String token = extractToken(authHeader);
+        if (!jwtUtil.validateToken(token)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid or expired token");
+        }
+        String role = jwtUtil.extractRole(token);
+        if (!"ADMIN".equals(role)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin access required");
+        }
     }
 }

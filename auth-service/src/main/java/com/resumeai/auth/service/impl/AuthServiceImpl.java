@@ -13,6 +13,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -63,24 +67,24 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public AuthResponse googleLogin(String token) {
         // Mocking verification for demonstration. In production use GoogleIdTokenVerifier.
-        String googleEmail = "google.user@example.com"; 
+        String googleEmail = "google.user@example.com";
         String googleName = "Google User";
-        
-        // If we want to simulate decoding the JWT without verification:
+
         try {
             String[] chunks = token.split("\\.");
             if (chunks.length > 1) {
                 String payload = new String(java.util.Base64.getUrlDecoder().decode(chunks[1]));
-                com.fasterxml.jackson.databind.JsonNode jsonNode = new com.fasterxml.jackson.databind.ObjectMapper().readTree(payload);
+                com.fasterxml.jackson.databind.JsonNode jsonNode =
+                        new com.fasterxml.jackson.databind.ObjectMapper().readTree(payload);
                 if (jsonNode.has("email")) googleEmail = jsonNode.get("email").asText();
-                if (jsonNode.has("name")) googleName = jsonNode.get("name").asText();
+                if (jsonNode.has("name"))  googleName  = jsonNode.get("name").asText();
             }
         } catch (Exception e) {
             // Ignore parse errors, fallback to dummy
         }
 
         final String finalEmail = googleEmail;
-        final String finalName = googleName;
+        final String finalName  = googleName;
 
         User user = userRepository.findByEmail(finalEmail)
                 .orElseGet(() -> {
@@ -145,7 +149,7 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
         if (request.getFullName() != null) user.setFullName(request.getFullName());
-        if (request.getPhone() != null) user.setPhone(request.getPhone());
+        if (request.getPhone()    != null) user.setPhone(request.getPhone());
         user.setUpdatedAt(LocalDateTime.now());
         userRepository.save(user);
         return toUserResponse(user);
@@ -188,6 +192,58 @@ public class AuthServiceImpl implements AuthService {
         userRepository.save(user);
     }
 
+    // ── Admin operations ────────────────────────────────────────────────────
+
+    @Override
+    public List<UserResponseDTO> getAllUsers() {
+        return userRepository.findAll().stream()
+                .map(this::toUserResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public void adminUpdateSubscription(String targetUserId, String plan) {
+        updateSubscription(targetUserId, plan);
+    }
+
+    @Override
+    @Transactional
+    public void adminSuspendUser(String targetUserId, boolean suspend) {
+        User user = userRepository.findById(targetUserId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        user.setActive(!suspend);
+        user.setUpdatedAt(LocalDateTime.now());
+        userRepository.save(user);
+    }
+
+    @Override
+    @Transactional
+    public void adminDeleteUser(String targetUserId) {
+        User user = userRepository.findById(targetUserId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        userRepository.delete(user);
+    }
+
+    @Override
+    public Map<String, Object> getPlatformStats() {
+        List<User> allUsers   = userRepository.findAll();
+        long totalUsers       = allUsers.size();
+        long activeUsers      = allUsers.stream().filter(User::isActive).count();
+        long premiumUsers     = allUsers.stream()
+                .filter(u -> u.getSubscriptionPlan() == User.SubscriptionPlan.PREMIUM).count();
+        long suspendedUsers   = allUsers.stream().filter(u -> !u.isActive()).count();
+
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("totalUsers",     totalUsers);
+        stats.put("activeUsers",    activeUsers);
+        stats.put("premiumUsers",   premiumUsers);
+        stats.put("freeUsers",      totalUsers - premiumUsers);
+        stats.put("suspendedUsers", suspendedUsers);
+        return stats;
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
     private UserResponseDTO toUserResponse(User user) {
         return new UserResponseDTO(

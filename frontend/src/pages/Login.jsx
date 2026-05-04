@@ -4,6 +4,7 @@ import { useToast } from '../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
 import api from '../services/api';
+import { pushNotification } from '../services/notify';
 
 const FEATURES = [
   { title: 'AI-Powered Content', desc: 'Generate professional summaries, bullet points, and skills tailored to your target role.' },
@@ -28,28 +29,21 @@ export default function Login() {
       if (isLogin) {
         await login(email, password);
         showToast('Welcome back!', 'success');
-        // Send welcome-back notification (fire-and-forget)
         const uid = localStorage.getItem('userId');
-        if (uid) {
-          api.post('/notifications', {
-            recipientId: uid,
-            title: 'Welcome Back',
-            type: 'SYSTEM_ALERT',
-            message: `Welcome back! You have successfully signed in to ResumeAI.`,
-          }).catch(() => {});
-        }
+        if (uid) pushNotification({
+          recipientId: uid,
+          type: 'USER_LOGIN',
+          message: `Welcome back! You signed in successfully on ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}.`,
+        });
       } else {
         await register({ fullName: name, email, password, phone: '9999999999' });
-        showToast('Account created!', 'success');
+        showToast('Account created! Welcome to ResumeAI 🎉', 'success');
         const uid = localStorage.getItem('userId');
-        if (uid) {
-          api.post('/notifications', {
-            recipientId: uid,
-            title: 'Account Created',
-            type: 'SYSTEM_ALERT',
-            message: `Welcome to ResumeAI! Start by choosing a template and building your first resume.`,
-          }).catch(() => {});
-        }
+        if (uid) pushNotification({
+          recipientId: uid,
+          type: 'USER_REGISTERED',
+          message: `Welcome to ResumeAI, ${name}! Your account is ready. Start by creating your first resume from the dashboard.`,
+        });
       }
       navigate('/dashboard');
     } catch (err) {
