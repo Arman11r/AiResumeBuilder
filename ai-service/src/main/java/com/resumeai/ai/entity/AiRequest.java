@@ -2,7 +2,7 @@ package com.resumeai.ai.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.GenericGenerator;
+import org.hibernate.annotations.UuidGenerator;
 import java.time.LocalDateTime;
 
 @Entity
@@ -11,8 +11,7 @@ import java.time.LocalDateTime;
 public class AiRequest {
 
     @Id
-    @GeneratedValue(generator = "UUID")
-    @GenericGenerator(name = "UUID", strategy = "org.hibernate.id.UUIDGenerator")
+    @UuidGenerator
     @Column(name = "request_id", updatable = false, nullable = false)
     private String requestId;
 
@@ -33,7 +32,7 @@ public class AiRequest {
     private String aiResponse;
 
     @Enumerated(EnumType.STRING)
-    private Model model = Model.GPT4O;
+    private Model model = Model.GEMINI;
 
     @Column(name = "tokens_used")
     private int tokensUsed = 0;

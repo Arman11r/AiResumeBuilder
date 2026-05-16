@@ -1,0 +1,346 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ResumeAI — Full-stack Docker Compose
+# All localhost references in application.yml are overridden via SPRING_ env vars
+# ─────────────────────────────────────────────────────────────────────────────
+
+networks:
+  resumeai-net:
+    driver: bridge
+
+volumes:
+  mysql_data:
+
+services:
+
+  # ── MySQL ──────────────────────────────────────────────────────────────────
+  mysql:
+    image: mysql:8.3
+    container_name: resumeai-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-admin123}
+      MYSQL_DATABASE: resumeai_auth          # first DB; others are auto-created
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - resumeai-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-admin123}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # ── Eureka Server ─────────────────────────────────────────────────────────
+  eureka-server:
+    build:
+      context: ./eureka-server
+      dockerfile: Dockerfile
+    container_name: resumeai-eureka
+    restart: unless-stopped
+    ports:
+      - "8761:8761"
+    environment:
+      SPRING_APPLICATION_NAME: eureka-server
+      EUREKA_INSTANCE_HOSTNAME: eureka-server
+      EUREKA_CLIENT_REGISTERWITHEUREKA: "false"
+      EUREKA_CLIENT_FETCHREGISTRY: "false"
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    networks:
+      - resumeai-net
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8761/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # ── API Gateway ────────────────────────────────────────────────────────────
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: resumeai-gateway
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_APPLICATION_NAME: api-gateway
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      SPRING_CLOUD_GATEWAY_ROUTES_0_ID: auth-service
+      SPRING_CLOUD_GATEWAY_ROUTES_0_URI: http://auth-service:8081
+      SPRING_CLOUD_GATEWAY_ROUTES_0_PREDICATES_0: Path=/auth/**
+      SPRING_CLOUD_GATEWAY_ROUTES_1_ID: resume-service
+      SPRING_CLOUD_GATEWAY_ROUTES_1_URI: http://resume-service:8082
+      SPRING_CLOUD_GATEWAY_ROUTES_1_PREDICATES_0: Path=/resumes/**
+      SPRING_CLOUD_GATEWAY_ROUTES_2_ID: section-service
+      SPRING_CLOUD_GATEWAY_ROUTES_2_URI: http://section-service:8083
+      SPRING_CLOUD_GATEWAY_ROUTES_2_PREDICATES_0: Path=/sections/**
+      SPRING_CLOUD_GATEWAY_ROUTES_3_ID: ai-service
+      SPRING_CLOUD_GATEWAY_ROUTES_3_URI: http://ai-service:8084
+      SPRING_CLOUD_GATEWAY_ROUTES_3_PREDICATES_0: Path=/ai/**
+      SPRING_CLOUD_GATEWAY_ROUTES_4_ID: template-service
+      SPRING_CLOUD_GATEWAY_ROUTES_4_URI: http://template-service:8085
+      SPRING_CLOUD_GATEWAY_ROUTES_4_PREDICATES_0: Path=/templates/**
+      SPRING_CLOUD_GATEWAY_ROUTES_5_ID: export-service
+      SPRING_CLOUD_GATEWAY_ROUTES_5_URI: http://export-service:8086
+      SPRING_CLOUD_GATEWAY_ROUTES_5_PREDICATES_0: Path=/exports/**
+      SPRING_CLOUD_GATEWAY_ROUTES_6_ID: jobmatch-service
+      SPRING_CLOUD_GATEWAY_ROUTES_6_URI: http://jobmatch-service:8087
+      SPRING_CLOUD_GATEWAY_ROUTES_6_PREDICATES_0: Path=/job-matches/**
+      SPRING_CLOUD_GATEWAY_ROUTES_7_ID: notification-service
+      SPRING_CLOUD_GATEWAY_ROUTES_7_URI: http://notification-service:8088
+      SPRING_CLOUD_GATEWAY_ROUTES_7_PREDICATES_0: Path=/notifications/**
+      SPRING_CLOUD_GATEWAY_GLOBALCORS_CORS_CONFIGURATIONS_[/**]_ALLOWEDORIGINS_0: "http://localhost:3000"
+      SPRING_CLOUD_GATEWAY_GLOBALCORS_CORS_CONFIGURATIONS_[/**]_ALLOWEDORIGINS_1: "http://localhost:80"
+      JWT_SECRET: ${JWT_SECRET:-resumeai-super-secret-key-change-in-production-2026}
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - resumeai-net
+
+  # ── Auth Service ───────────────────────────────────────────────────────────
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    container_name: resumeai-auth
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/resumeai_auth?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-admin123}
+      SPRING_FLYWAY_URL: jdbc:mysql://mysql:3306/resumeai_auth?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_FLYWAY_USER: root
+      SPRING_FLYWAY_PASSWORD: ${MYSQL_ROOT_PASSWORD:-admin123}
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      JWT_SECRET: ${JWT_SECRET:-resumeai-super-secret-key-change-in-production-2026}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - resumeai-net
+
+  # ── Resume Service ─────────────────────────────────────────────────────────
+  resume-service:
+    build:
+      context: ./resume-service
+      dockerfile: Dockerfile
+    container_name: resumeai-resume
+    restart: unless-stopped
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/resumeai_resume?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-admin123}
+      SPRING_FLYWAY_URL: jdbc:mysql://mysql:3306/resumeai_resume?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_FLYWAY_USER: root
+      SPRING_FLYWAY_PASSWORD: ${MYSQL_ROOT_PASSWORD:-admin123}
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      JWT_SECRET: ${JWT_SECRET:-resumeai-super-secret-key-change-in-production-2026}
+      SERVICES_AUTH_URL: http://auth-service:8081
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - resumeai-net
+
+  # ── Section Service ────────────────────────────────────────────────────────
+  section-service:
+    build:
+      context: ./section-service
+      dockerfile: Dockerfile
+    container_name: resumeai-section
+    restart: unless-stopped
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/resumeai_section?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-admin123}
+      SPRING_FLYWAY_URL: jdbc:mysql://mysql:3306/resumeai_section?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_FLYWAY_USER: root
+      SPRING_FLYWAY_PASSWORD: ${MYSQL_ROOT_PASSWORD:-admin123}
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      JWT_SECRET: ${JWT_SECRET:-resumeai-super-secret-key-change-in-production-2026}
+      SERVICES_RESUME_URL: http://resume-service:8082
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - resumeai-net
+
+  # ── AI Service ─────────────────────────────────────────────────────────────
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: resumeai-ai
+    restart: unless-stopped
+    ports:
+      - "8084:8084"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/resumeai_ai?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-admin123}
+      SPRING_FLYWAY_URL: jdbc:mysql://mysql:3306/resumeai_ai?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_FLYWAY_USER: root
+      SPRING_FLYWAY_PASSWORD: ${MYSQL_ROOT_PASSWORD:-admin123}
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      JWT_SECRET: ${JWT_SECRET:-resumeai-super-secret-key-change-in-production-2026}
+      SERVICES_AUTH_URL: http://auth-service:8081
+      SERVICES_SECTION_URL: http://section-service:8083
+      AI_GEMINI_API_KEY: ${GEMINI_API_KEY}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - resumeai-net
+
+  # ── Template Service ───────────────────────────────────────────────────────
+  template-service:
+    build:
+      context: ./template-service
+      dockerfile: Dockerfile
+    container_name: resumeai-template
+    restart: unless-stopped
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/resumeai_template?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-admin123}
+      SPRING_FLYWAY_URL: jdbc:mysql://mysql:3306/resumeai_template?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_FLYWAY_USER: root
+      SPRING_FLYWAY_PASSWORD: ${MYSQL_ROOT_PASSWORD:-admin123}
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      JWT_SECRET: ${JWT_SECRET:-resumeai-super-secret-key-change-in-production-2026}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - resumeai-net
+
+  # ── Export Service ─────────────────────────────────────────────────────────
+  export-service:
+    build:
+      context: ./export-service
+      dockerfile: Dockerfile
+    container_name: resumeai-export
+    restart: unless-stopped
+    ports:
+      - "8086:8086"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/resumeai_export?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-admin123}
+      SPRING_FLYWAY_URL: jdbc:mysql://mysql:3306/resumeai_export?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_FLYWAY_USER: root
+      SPRING_FLYWAY_PASSWORD: ${MYSQL_ROOT_PASSWORD:-admin123}
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      JWT_SECRET: ${JWT_SECRET:-resumeai-super-secret-key-change-in-production-2026}
+      SERVICES_RESUME_URL: http://resume-service:8082
+      SERVICES_SECTION_URL: http://section-service:8083
+      SERVICES_TEMPLATE_URL: http://template-service:8085
+      SERVICES_NOTIFICATION_URL: http://notification-service:8088
+      EXPORT_STORAGE_LOCAL_PATH: /tmp/resumeai-exports
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - resumeai-net
+
+  # ── JobMatch Service ───────────────────────────────────────────────────────
+  jobmatch-service:
+    build:
+      context: ./jobmatch-service
+      dockerfile: Dockerfile
+    container_name: resumeai-jobmatch
+    restart: unless-stopped
+    ports:
+      - "8087:8087"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/resumeai_jobmatch?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-admin123}
+      SPRING_FLYWAY_URL: jdbc:mysql://mysql:3306/resumeai_jobmatch?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_FLYWAY_USER: root
+      SPRING_FLYWAY_PASSWORD: ${MYSQL_ROOT_PASSWORD:-admin123}
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      JWT_SECRET: ${JWT_SECRET:-resumeai-super-secret-key-change-in-production-2026}
+      SERVICES_RESUME_URL: http://resume-service:8082
+      SERVICES_AI_URL: http://ai-service:8084
+      JOBMATCH_RAPIDAPI_KEY: ${RAPIDAPI_KEY:-}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - resumeai-net
+
+  # ── Notification Service ───────────────────────────────────────────────────
+  notification-service:
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
+    container_name: resumeai-notification
+    restart: unless-stopped
+    ports:
+      - "8088:8088"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/resumeai_notification?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-admin123}
+      SPRING_FLYWAY_URL: jdbc:mysql://mysql:3306/resumeai_notification?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_FLYWAY_USER: root
+      SPRING_FLYWAY_PASSWORD: ${MYSQL_ROOT_PASSWORD:-admin123}
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      JWT_SECRET: ${JWT_SECRET:-resumeai-super-secret-key-change-in-production-2026}
+      SPRING_MAIL_USERNAME: ${MAIL_USERNAME:-}
+      SPRING_MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - resumeai-net
+
+  # ── Frontend ───────────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8080/api/v1}
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-}
+    container_name: resumeai-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - api-gateway
+    networks:
+      - resumeai-net

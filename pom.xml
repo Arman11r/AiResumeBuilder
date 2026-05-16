@@ -1,0 +1,20 @@
+<project>
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.resumeai</groupId>
+  <artifactId>resumeai-parent</artifactId>
+  <version>1.0.0</version>
+  <packaging>pom</packaging>
+
+  <modules>
+    <module>ai-service</module>
+    <module>api-gateway</module>
+    <module>auth-service</module>
+    <module>eureka-server</module>
+    <module>export-service</module>
+    <module>jobmatch-service</module>
+    <module>notification-service</module>
+    <module>resume-service</module>
+    <module>section-service</module>
+    <module>template-service</module>
+  </modules>
+</project>

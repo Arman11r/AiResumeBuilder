@@ -55,6 +55,11 @@ export default function Admin() {
   const [stats, setStats] = useState(null);
   const [allResumes, setAllResumes] = useState([]);
 
+  /* broadcast */
+  const [broadcastMsg, setBroadcastMsg] = useState('');
+  const [broadcastTier, setBroadcastTier] = useState('ALL');
+  const [broadcasting, setBroadcasting] = useState(false);
+
   /* ── loaders ── */
   const loadUsers = async () => {
     setUsersLoading(true);
@@ -141,11 +146,40 @@ export default function Admin() {
 
   const CATEGORIES = ['PROFESSIONAL','CREATIVE','MODERN','MINIMALIST','ATS_OPTIMISED'];
 
+  /* ── broadcast handler ── */
+  const handleBroadcast = async () => {
+    if (!broadcastMsg.trim()) return showToast('Message cannot be empty', 'error');
+    setBroadcasting(true);
+    try {
+      // Build recipient list from already-loaded users, filtered by tier
+      const targets = broadcastTier === 'ALL'
+        ? users
+        : users.filter(u => u.subscriptionPlan === broadcastTier);
+
+      if (targets.length === 0) {
+        showToast('No users found for the selected tier', 'error');
+        setBroadcasting(false);
+        return;
+      }
+
+      await api.post('/notifications/broadcast', {
+        title: '📢 Platform Announcement',
+        message: broadcastMsg.trim(),
+        type: 'ADMIN_BROADCAST',
+        recipientIds: targets.map(u => u.userId),
+      });
+      showToast(`Broadcast sent to ${targets.length} user${targets.length !== 1 ? 's' : ''} ✓`, 'success');
+      setBroadcastMsg('');
+    } catch { showToast('Broadcast failed', 'error'); }
+    finally { setBroadcasting(false); }
+  };
+
   /* ── sidebar tabs ── */
   const TABS = [
     { id:'users',     icon:'👥', label:'User Management' },
     { id:'templates', icon:'📄', label:'Templates' },
     { id:'analytics', icon:'📊', label:'Analytics' },
+    { id:'broadcast', icon:'📢', label:'Send Notification' },
   ];
 
   return (
@@ -437,6 +471,55 @@ export default function Admin() {
                   <p>Loading analytics…</p>
                 </div>
               )}
+            </div>
+          )}
+          {/* ── BROADCAST ── */}
+          {tab === 'broadcast' && (
+            <div className="fade-in">
+              <div style={{ marginBottom:24 }}>
+                <h2 style={{ marginBottom:4 }}>Send Platform Notification</h2>
+                <p style={{ fontSize:13 }}>Broadcast an alert to all users or filter by subscription tier.</p>
+              </div>
+
+              <div className="card" style={{ maxWidth: 600 }}>
+                <div className="form-group">
+                  <label>Target Audience</label>
+                  <select
+                    className="input-field"
+                    value={broadcastTier}
+                    onChange={e => setBroadcastTier(e.target.value)}
+                  >
+                    <option value="ALL">All Users</option>
+                    <option value="FREE">Free Users Only</option>
+                    <option value="PREMIUM">Premium Users Only</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label>Notification Message</label>
+                  <textarea
+                    className="input-field"
+                    rows={5}
+                    value={broadcastMsg}
+                    onChange={e => setBroadcastMsg(e.target.value)}
+                    placeholder="Type your broadcast message here… e.g. 'We just released a new feature! Check it out in your dashboard.'"
+                  />
+                  <div style={{ fontSize: 11, color: '#6b7280', marginTop: 4 }}>{broadcastMsg.length}/500 characters</div>
+                </div>
+
+                <div style={{ display:'flex', alignItems:'center', gap:16 }}>
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleBroadcast}
+                    disabled={broadcasting || !broadcastMsg.trim()}
+                  >
+                    {broadcasting ? <><span className="spinner" /> Sending…</> : '📢 Send Broadcast'}
+                  </button>
+                  <span style={{ fontSize: 12, color: '#6b7280' }}>
+                    This will send an in-app notification to {broadcastTier === 'ALL' ? 'all users' : `${broadcastTier} users`}.
+                  </span>
+                </div>
+              </div>
             </div>
           )}
 

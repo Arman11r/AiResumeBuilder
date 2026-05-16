@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
-import java.util.stream.Collectors;
+
 
 @Slf4j
 @Service
@@ -23,10 +23,13 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     @Transactional
     public NotificationResponse send(SendNotificationRequest request) {
+        String title = (request.getTitle() != null && !request.getTitle().isBlank())
+                ? request.getTitle()
+                : formatTitle(request.getType());
         Notification notification = Notification.builder()
                 .recipientId(request.getRecipientId())
                 .type(parseType(request.getType()))
-                .title(request.getTitle())
+                .title(title)
                 .message(request.getMessage())
                 .channel(parseChannel(request.getChannel()))
                 .relatedId(request.getRelatedId())
@@ -52,7 +55,7 @@ public class NotificationServiceImpl implements NotificationService {
                         .channel(Notification.Channel.APP)
                         .isRead(false)
                         .build())
-                .collect(Collectors.toList());
+                .toList();
         notificationRepository.saveAll(notifications);
     }
 
@@ -77,7 +80,7 @@ public class NotificationServiceImpl implements NotificationService {
     public List<NotificationResponse> getByRecipient(String recipientId) {
         return notificationRepository
                 .findByRecipientIdOrderBySentAtDesc(recipientId)
-                .stream().map(this::toResponse).collect(Collectors.toList());
+                .stream().map(this::toResponse).toList();
     }
 
     @Override
@@ -96,6 +99,12 @@ public class NotificationServiceImpl implements NotificationService {
         return notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Notification not found: " + notificationId));
+    }
+
+    private String formatTitle(String type) {
+        if (type == null) return "Notification";
+        return type.replace('_', ' ').toLowerCase().substring(0, 1).toUpperCase()
+                + type.replace('_', ' ').toLowerCase().substring(1);
     }
 
     private Notification.NotificationType parseType(String type) {
