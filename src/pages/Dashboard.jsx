@@ -27,6 +27,13 @@ const TrashIcon = () => (
   </svg>
 );
 
+const CopyIcon = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+  </svg>
+);
+
 export default function Dashboard() {
   const { user, logout } = useContext(AuthContext);
   const { showToast } = useToast();
@@ -86,6 +93,23 @@ export default function Dashboard() {
     }
   };
 
+  const handleDuplicate = async (e, id) => {
+    e.stopPropagation();
+    try {
+      const res = await api.post(`/resumes/${id}/duplicate`);
+      showToast('Resume duplicated ✨', 'success');
+      pushNotification({
+        recipientId: user.userId,
+        type: 'RESUME_CREATED',
+        message: `A duplicate of your resume has been created as "${res.data?.title || 'Copy'}".`,
+        relatedId: res.data?.resumeId,
+      });
+      fetchResumes();
+    } catch (err) {
+      showToast('Error duplicating resume', 'error');
+    }
+  };
+
   const avgAts = resumes.length
     ? Math.round(resumes.reduce((acc, r) => acc + (r.atsScore || 0), 0) / resumes.length)
     : 0;
@@ -107,6 +131,7 @@ export default function Dashboard() {
           <button className="nav-link" onClick={() => navigate('/job-match')}>Job Match</button>
           <button className="nav-link" onClick={() => navigate('/cover-letter')}>Cover Letters</button>
           <button className="nav-link" onClick={() => navigate('/gallery')}>🌐 Gallery</button>
+          <button className="nav-link" onClick={() => navigate('/ai-history')}>AI History</button>
           <div className="nav-divider"></div>
           <NotificationDropdown userId={user.userId} />
           <button className="nav-link" onClick={() => navigate('/profile')}>Profile</button>
@@ -134,11 +159,16 @@ export default function Dashboard() {
 
         {/* ── Stats Row ── */}
         {resumes.length > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16, marginBottom: 36 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 36 }}>
             <div className="stat-card">
               <div className="stat-label">Total Resumes</div>
               <div className="stat-value">{resumes.length}</div>
               <div className="stat-sub">in your account</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-label">Published</div>
+              <div className="stat-value">{resumes.filter(r => r.public).length}</div>
+              <div className="stat-sub">in public gallery</div>
             </div>
             <div className="stat-card">
               <div className="stat-label">Templates Used</div>
@@ -186,16 +216,29 @@ export default function Dashboard() {
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
                     <h3 style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.3 }}>{r.title}</h3>
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      style={{ color: 'var(--text-muted)', padding: '4px 8px', flexShrink: 0 }}
-                      onClick={(e) => handleDelete(e, r.resumeId)}
-                      title="Delete resume"
-                    >
-                      <TrashIcon />
-                    </button>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        style={{ color: 'var(--text-muted)', padding: '4px 8px', flexShrink: 0 }}
+                        onClick={(e) => handleDuplicate(e, r.resumeId)}
+                        title="Duplicate resume"
+                      >
+                        <CopyIcon />
+                      </button>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        style={{ color: 'var(--text-muted)', padding: '4px 8px', flexShrink: 0 }}
+                        onClick={(e) => handleDelete(e, r.resumeId)}
+                        title="Delete resume"
+                      >
+                        <TrashIcon />
+                      </button>
+                    </div>
                   </div>
                   <p style={{ fontSize: 13, margin: 0, color: 'var(--text-muted)' }}>{r.targetJobTitle}</p>
+                  {r.public && (
+                    <span style={{ fontSize: 10, background: '#dcfce7', color: '#166534', padding: '1px 7px', borderRadius: 999, fontWeight: 700, marginTop: 6, display: 'inline-block' }}>PUBLIC</span>
+                  )}
                 </div>
               </div>
             ))}

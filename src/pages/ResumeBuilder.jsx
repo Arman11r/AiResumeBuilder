@@ -7,6 +7,10 @@ import { pushNotification } from '../services/notify';
 import ResumePreview from '../components/ResumePreview';
 import html2pdf from 'html2pdf.js';
 import { saveAs } from 'file-saver';
+import {
+  Document, Packer, Paragraph, TextRun, HeadingLevel,
+  AlignmentType, BorderStyle,
+} from 'docx';
 import QuotaWidget from '../components/QuotaWidget';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
@@ -239,33 +243,97 @@ export default function ResumeBuilder() {
 
       } else if (format === 'DOCX') {
         showToast('Generating DOCX...', 'info');
-        // Escape HTML entities in user content to avoid malformed XML
-        const esc = (str) => (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
-        const sectionHTML = sections
-          .filter(s => s.visible && s.content)
-          .sort((a, b) => a.displayOrder - b.displayOrder)
-          .map(s => `<div style="margin-top:18px">
-            <div style="font-size:13pt;font-weight:bold;color:#2563eb;text-transform:uppercase;border-bottom:2px solid #2563eb;padding-bottom:3px;margin-bottom:8px">${esc(s.title)}</div>
-            <div style="font-size:11pt;color:#1f2937;line-height:1.6;white-space:pre-wrap">${esc(s.content)}</div>
-          </div>`)
-          .join('');
+        // Build docx paragraphs from resume sections
+        const children = [];
 
-        const wordHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-          <style>
-            body { font-family: Arial, sans-serif; margin: 60px; color: #1f2937; }
-            h1   { font-size: 22pt; color: #2563eb; text-align: center; margin-bottom: 2px; }
-            .sub { font-size: 13pt; color: #6b7280; text-align: center; margin-bottom: 18px; }
-            hr   { border: 1.5px solid #2563eb; margin-bottom: 18px; }
-          </style></head><body>
-          <h1>${esc(resume.title)}</h1>
-          <div class="sub">${esc(resume.targetJobTitle)}</div>
-          <hr>${sectionHTML}</body></html>`;
+        // ── Name / Title header ──
+        children.push(
+          new Paragraph({
+            text: resume.title || 'Your Name',
+            alignment: AlignmentType.LEFT,
+            spacing: { after: 60 },
+            run: { color: '0D1117', bold: true, size: 52, font: 'Arial' },
+          }),
+        );
+        if (resume.targetJobTitle) {
+          children.push(
+            new Paragraph({
+              alignment: AlignmentType.LEFT,
+              spacing: { after: 240 },
+              children: [
+                new TextRun({
+                  text: resume.targetJobTitle,
+                  color: '555F70',
+                  size: 26,
+                  font: 'Arial',
+                }),
+              ],
+            }),
+          );
+        }
 
-        // Use application/msword MIME — universally recognised by Word / LibreOffice
-        const blob = new Blob(['\ufeff', wordHtml], { type: 'application/msword;charset=utf-8' });
-        saveAs(blob, `${resume.title || 'Resume'}.doc`);
-        showToast('Document downloaded (.doc)', 'success');
+        // ── Sections ──
+        const visibleSections = sections
+          .filter(s => s.visible !== false && s.content)
+          .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+
+        visibleSections.forEach(s => {
+          // Section heading
+          children.push(
+            new Paragraph({
+              spacing: { before: 240, after: 80 },
+              border: {
+                bottom: { color: 'E4E7EC', style: BorderStyle.SINGLE, size: 6, space: 4 },
+              },
+              children: [
+                new TextRun({
+                  text: (s.title || s.sectionType || '').toUpperCase(),
+                  bold: true,
+                  color: '2563EB',
+                  size: 20,
+                  font: 'Arial',
+                }),
+              ],
+            }),
+          );
+
+          // Section content — split on newlines to preserve paragraph breaks
+          const lines = (s.content || '').split('\n');
+          lines.forEach(line => {
+            children.push(
+              new Paragraph({
+                spacing: { after: 60 },
+                children: [
+                  new TextRun({
+                    text: line,
+                    size: 22,
+                    color: '2D3748',
+                    font: 'Arial',
+                  }),
+                ],
+              }),
+            );
+          });
+        });
+
+        const doc = new Document({
+          creator: 'ResumeAI',
+          title: resume.title || 'Resume',
+          description: resume.targetJobTitle || '',
+          sections: [{
+            properties: {
+              page: {
+                margin: { top: 720, right: 720, bottom: 720, left: 720 },
+              },
+            },
+            children,
+          }],
+        });
+
+        const blob = await Packer.toBlob(doc);
+        saveAs(blob, `${resume.title || 'Resume'}.docx`);
+        showToast('DOCX downloaded ✓', 'success');
       }
 
       pushNotification({
@@ -388,7 +456,22 @@ export default function ResumeBuilder() {
             <button className="btn btn-outline btn-sm" onClick={() => handleExport('PDF')} disabled={aiLoading}>
               <DownloadIcon /> Download PDF
             </button>
+            <button className="btn btn-outline btn-sm" onClick={() => handleExport('DOCX')} disabled={aiLoading}>
+              <DownloadIcon /> Download DOCX
+            </button>
           </div>
+          {resume.public && (
+            <button
+              className="btn btn-ghost btn-sm"
+              style={{ marginTop: 10, width: '100%', fontSize: 11, color: 'var(--primary)' }}
+              onClick={() => {
+                const url = `${window.location.origin}/gallery`;
+                navigator.clipboard.writeText(url).then(() => showToast('Gallery link copied! 🔗', 'success'));
+              }}
+            >
+              🔗 Copy Share Link
+            </button>
+          )}
         </div>
       </div>
 
@@ -571,6 +654,58 @@ export default function ResumeBuilder() {
                 )}
               </div>
             )}
+
+            {/* ── Premium AI Tools ── */}
+            <div className="section-card" style={{ borderLeft: '3px solid var(--primary)' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                ✨ Premium AI Tools
+              </div>
+
+              {/* Tailor Resume */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Tailor Resume for this Job</div>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10 }}>AI fully rewrites your resume content to match the job description above.</p>
+                <button
+                  className="btn btn-ai btn-sm"
+                  disabled={aiLoading || !jobDesc}
+                  onClick={() => {
+                    const content = sections.map(s => s.content).join('\n');
+                    callAi('/ai/tailorResume', { sectionContent: content, jobDescription: jobDesc }, sections[0]?.sectionId);
+                  }}
+                >
+                  <SparkleIcon /> Tailor Resume
+                </button>
+              </div>
+
+              {/* Translate Resume */}
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Translate Resume</div>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10 }}>Translate your resume content to another language while maintaining professional tone.</p>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <select
+                    id="translateLang"
+                    className="input-field"
+                    style={{ flex: 1 }}
+                    defaultValue="French"
+                  >
+                    {['French','German','Spanish','Portuguese','Hindi','Arabic','Japanese','Chinese'].map(lang => (
+                      <option key={lang} value={lang}>{lang}</option>
+                    ))}
+                  </select>
+                  <button
+                    className="btn btn-outline btn-sm"
+                    disabled={aiLoading}
+                    onClick={() => {
+                      const content = sections.map(s => s.content).join('\n');
+                      const lang = document.getElementById('translateLang')?.value || 'French';
+                      callAi('/ai/translate', { sectionContent: content, targetLanguage: lang }, sections[0]?.sectionId);
+                    }}
+                  >
+                    Translate
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>

@@ -27,6 +27,7 @@ export default function CoverLetter() {
 
   const [resumes, setResumes] = useState([]);
   const [selectedResumeId, setSelectedResumeId] = useState(paramResumeId || '');
+  const [jobTitle, setJobTitle] = useState('');
   const [jobDesc, setJobDesc] = useState('');
   const [letter, setLetter] = useState('');
   const [loading, setLoading] = useState(false);
@@ -51,7 +52,7 @@ export default function CoverLetter() {
       const res = await api.post('/ai/generateCoverLetter', {
         userId: user.userId,
         resumeId: selectedResumeId,
-        jobTitle: 'Professional',
+        jobTitle: jobTitle.trim() || 'Professional',
         jobDescription: jobDesc.trim(),
       });
       setLetter(res.data?.content || 'Failed to generate content');
@@ -107,6 +108,15 @@ export default function CoverLetter() {
               <select className="input-field" value={selectedResumeId} onChange={e => setSelectedResumeId(e.target.value)}>
                 {resumes.length === 0 ? <option value="">No resumes found</option> : resumes.map(r => <option key={r.resumeId} value={r.resumeId}>{r.title}</option>)}
               </select>
+            </div>
+            <div className="form-group">
+              <label>Target Job Title</label>
+              <input
+                className="input-field"
+                value={jobTitle}
+                onChange={e => setJobTitle(e.target.value)}
+                placeholder="e.g. Senior Software Engineer"
+              />
             </div>
             <div className="form-group" style={{ marginBottom: 24 }}>
               <label>Target Job Description</label>
