@@ -1,14 +1,12 @@
 package com.resumeai.notification.dto;
 
-import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 @Data
 public class BroadcastRequest {
-    @NotBlank
     private String title;
-    @NotBlank
     private String message;
-    private String type = "PLAN_CHANGE";
-    private java.util.List<String> recipientIds;
+    private String type = "ADMIN_BROADCAST";
+    private java.util.List<String> recipientIds;  // if null/empty → the notification controller should prefill
+    private String targetTier;  // ALL, FREE, or PREMIUM (informational, used by the gateway/admin)
 }

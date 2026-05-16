@@ -2,7 +2,7 @@ package com.resumeai.notification.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.GenericGenerator;
+import org.hibernate.annotations.UuidGenerator;
 import java.time.LocalDateTime;
 
 @Entity
@@ -11,8 +11,7 @@ import java.time.LocalDateTime;
 public class Notification {
 
     @Id
-    @GeneratedValue(generator = "UUID")
-    @GenericGenerator(name = "UUID", strategy = "org.hibernate.id.UUIDGenerator")
+    @UuidGenerator
     @Column(name = "notification_id", updatable = false, nullable = false)
     private String notificationId;
 
@@ -50,8 +49,19 @@ public class Notification {
     }
 
     public enum NotificationType {
-        ATS_COMPLETE, EXPORT_READY, AI_DONE,
-        JOB_MATCH, PLAN_CHANGE, QUOTA_WARNING
+        // AI events
+        ATS_COMPLETE, AI_DONE, AI_CONTENT_GENERATED, COVER_LETTER_GENERATED,
+        // Resume events
+        RESUME_CREATED, RESUME_DELETED, RESUME_PUBLISHED, RESUME_UNPUBLISHED,
+        SECTION_ADDED, SECTION_DELETED,
+        // Export events
+        EXPORT_READY,
+        // Job events
+        JOB_MATCH, JOB_SEARCH_COMPLETE, JOB_BOOKMARKED,
+        // Account events
+        PLAN_UPGRADED, PLAN_CHANGE, QUOTA_WARNING, PROFILE_UPDATED, PASSWORD_CHANGED,
+        // Admin events
+        ADMIN_BROADCAST
     }
 
     public enum Channel {
