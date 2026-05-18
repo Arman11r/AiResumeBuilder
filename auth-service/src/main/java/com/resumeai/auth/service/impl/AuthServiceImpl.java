@@ -4,6 +4,7 @@ import com.resumeai.auth.dto.*;
 import com.resumeai.auth.entity.User;
 import com.resumeai.auth.repository.UserRepository;
 import com.resumeai.auth.service.AuthService;
+import com.resumeai.auth.service.TokenBlacklistService;
 import com.resumeai.auth.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -25,6 +26,7 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final TokenBlacklistService tokenBlacklistService;
 
     @Override
     @Transactional
@@ -111,12 +113,16 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public void logout(String token) {
-        // Stateless JWT — client discards token.
-        // TODO: add token blacklist via Redis when needed.
+        // Revoke token by adding it to the Redis blacklist with TTL = jwt.expiry-ms.
+        // Subsequent calls to validateToken() will return false for this token.
+        tokenBlacklistService.blacklist(token);
     }
 
     @Override
     public boolean validateToken(String token) {
+        if (tokenBlacklistService.isBlacklisted(token)) {
+            return false;
+        }
         return jwtUtil.validateToken(token);
     }
 

@@ -2,19 +2,21 @@ server:
   port: 8086
 
 spring:
+  config:
+    import: optional:file:../.env[.properties], optional:file:./.env[.properties]
   application:
     name: export-service
 
   datasource:
-    url: jdbc:mysql://localhost:3306/resumeai_export?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-    username: root
-    password: admin123
+    url: jdbc:mysql://${DB_HOST:localhost}:3306/resumeai_export?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${DB_USERNAME:root}
+    password: ${MYSQL_ROOT_PASSWORD:admin123}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
     hibernate:
       ddl-auto: none
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
@@ -23,28 +25,46 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:localhost}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:guest}
+    password: ${SPRING_RABBITMQ_PASSWORD:guest}
+
 eureka:
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka/
+      defaultZone: http://${EUREKA_HOST:localhost}:8761/eureka/
   instance:
     prefer-ip-address: true
 
 jwt:
-  secret: resumeai-super-secret-key-change-in-production-2026
+  secret: ${JWT_SECRET:resumeai-super-secret-key-change-in-production-2026}
 
 services:
-  resume-url: http://localhost:8082
-  section-url: http://localhost:8083
-  template-url: http://localhost:8085
-  notification-url: http://localhost:8088
+  resume-url: http://${RESUME_SERVICE_HOST:localhost}:8082
+  section-url: http://${SECTION_SERVICE_HOST:localhost}:8083
+  template-url: http://${TEMPLATE_SERVICE_HOST:localhost}:8085
+  notification-url: http://${NOTIFICATION_SERVICE_HOST:localhost}:8088
 
 export:
   storage:
-    local-path: /tmp/resumeai-exports
+    local-path: ${EXPORT_STORAGE_LOCAL_PATH:/tmp/resumeai-exports}
+
+rabbitmq:
+  exchange:
+    notification: notification_exchange
+  routing:
+    export-completed: export.completed
 
 management:
   endpoints:
     web:
       exposure:
         include: health,info
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html

@@ -49,7 +49,7 @@ export default function Admin() {
   /* templates */
   const [templates, setTemplates] = useState([]);
   const [showNewTemplate, setShowNewTemplate] = useState(false);
-  const [tmpl, setTmpl] = useState({ name:'', description:'', category:'PROFESSIONAL', isPremium:false, htmlLayout:'', cssStyles:'' });
+  const [tmpl, setTmpl] = useState({ name:'', description:'', category:'PROFESSIONAL', isPremium:false, previewContent:'' });
 
   /* analytics */
   const [stats, setStats] = useState(null);
@@ -122,10 +122,19 @@ export default function Admin() {
   const handleCreateTemplate = async () => {
     if (!tmpl.name || !tmpl.category) return showToast('Name & category required', 'error');
     try {
-      await api.post('/templates', tmpl);
+      // Map friendly content to htmlLayout for backend storage
+      const payload = {
+        name: tmpl.name,
+        description: tmpl.description,
+        category: tmpl.category,
+        isPremium: tmpl.isPremium,
+        htmlLayout: tmpl.previewContent || '',
+        cssStyles: '',
+      };
+      await api.post('/templates', payload);
       showToast('Template created', 'success');
       setShowNewTemplate(false);
-      setTmpl({ name:'', description:'', category:'PROFESSIONAL', isPremium:false, htmlLayout:'', cssStyles:'' });
+      setTmpl({ name:'', description:'', category:'PROFESSIONAL', isPremium:false, previewContent:'' });
       loadTemplates();
     } catch { showToast('Failed to create template', 'error'); }
   };
@@ -151,13 +160,20 @@ export default function Admin() {
     if (!broadcastMsg.trim()) return showToast('Message cannot be empty', 'error');
     setBroadcasting(true);
     try {
-      // Build recipient list from already-loaded users, filtered by tier
+      // Re-fetch users if not already loaded (e.g. user navigated directly to broadcast tab)
+      let userList = users;
+      if (!userList || userList.length === 0) {
+        const r = await api.get('/auth/admin/users');
+        userList = r.data || [];
+        setUsers(userList);
+      }
+
       const targets = broadcastTier === 'ALL'
-        ? users
-        : users.filter(u => u.subscriptionPlan === broadcastTier);
+        ? userList
+        : userList.filter(u => u.subscriptionPlan === broadcastTier);
 
       if (targets.length === 0) {
-        showToast('No users found for the selected tier', 'error');
+        showToast('No users match the selected tier', 'error');
         setBroadcasting(false);
         return;
       }
@@ -170,7 +186,10 @@ export default function Admin() {
       });
       showToast(`Broadcast sent to ${targets.length} user${targets.length !== 1 ? 's' : ''} ✓`, 'success');
       setBroadcastMsg('');
-    } catch { showToast('Broadcast failed', 'error'); }
+    } catch (e) {
+      const msg = e?.response?.data?.message || 'Broadcast failed';
+      showToast(msg, 'error');
+    }
     finally { setBroadcasting(false); }
   };
 
@@ -345,19 +364,17 @@ export default function Admin() {
                       onChange={e => setTmpl({...tmpl, description:e.target.value})}
                       placeholder="Brief description of the template" />
                   </div>
-                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16 }}>
-                    <div className="form-group" style={{ margin:0 }}>
-                      <label>HTML Layout</label>
-                      <textarea className="input-field" rows={5} value={tmpl.htmlLayout}
-                        onChange={e => setTmpl({...tmpl, htmlLayout:e.target.value})}
-                        placeholder="Paste HTML template code…" style={{ fontFamily:'monospace', fontSize:12 }} />
-                    </div>
-                    <div className="form-group" style={{ margin:0 }}>
-                      <label>CSS Styles</label>
-                      <textarea className="input-field" rows={5} value={tmpl.cssStyles}
-                        onChange={e => setTmpl({...tmpl, cssStyles:e.target.value})}
-                        placeholder="Paste CSS styles…" style={{ fontFamily:'monospace', fontSize:12 }} />
-                    </div>
+                  <div className="form-group">
+                    <label>Demo Resume Content</label>
+                    <textarea
+                      className="input-field"
+                      rows={7}
+                      value={tmpl.previewContent}
+                      onChange={e => setTmpl({...tmpl, previewContent:e.target.value})}
+                      placeholder="Describe what a sample resume using this template would look like. E.g. 'A clean two-column layout with a bold header, skills sidebar, and work experience timeline. Best suited for corporate roles.'"
+                      style={{ resize:'vertical' }}
+                    />
+                    <div style={{ fontSize:11, color:'#9ca3af', marginTop:4 }}>This will be shown to users as a preview description for the template.</div>
                   </div>
                   <div style={{ display:'flex', alignItems:'center', gap:16 }}>
                     <label style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, cursor:'pointer' }}>

@@ -8,6 +8,7 @@ import com.resumeai.ai.service.AiService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -339,6 +340,7 @@ public class AiServiceImpl implements AiService {
 
     @Override
     @Transactional
+    @Cacheable(value = "ai:skills", key = "#request.jobTitle.toLowerCase()")
     public AiResponse suggestSkills(AiRequestDTO request) {
         enforceContentQuota(request.getUserId());
         String prompt = "Suggest 12 highly relevant skills for a " +

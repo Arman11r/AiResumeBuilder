@@ -3,22 +3,22 @@ server:
   error:
     include-message: always
 
-
 spring:
+  config:
+    import: optional:file:../.env[.properties], optional:file:./.env[.properties]
   application:
     name: ai-service
 
-
   datasource:
-    url: jdbc:mysql://localhost:3306/resumeai_ai?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-    username: root
-    password: admin123
+    url: jdbc:mysql://${DB_HOST:localhost}:3306/resumeai_ai?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${DB_USERNAME:root}
+    password: ${MYSQL_ROOT_PASSWORD:admin123}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
     hibernate:
       ddl-auto: none
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
@@ -27,34 +27,48 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+  # ── Redis ─────────────────────────────────────────────────────────────────
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+      connect-timeout: 2000ms
 
 eureka:
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka/
+      defaultZone: http://${EUREKA_HOST:localhost}:8761/eureka/
   instance:
     prefer-ip-address: true
 
 jwt:
-  secret: resumeai-super-secret-key-change-in-production-2026
+  secret: ${JWT_SECRET:resumeai-super-secret-key-change-in-production-2026}
 
 ai:
   gemini:
-    api-key: "AIzaSyBl8S68PlRBdzw93jP1HSGku2EAVhaxVbs" # <- PASTE YOUR GEMINI API KEY HERE
+    api-key: ${GEMINI_API_KEY:}
     url: https://generativelanguage.googleapis.com/v1beta
     model: gemini-2.5-flash
 
 services:
-  auth-url: http://localhost:8081
-  section-url: http://localhost:8083
+  auth-url: http://${AUTH_SERVICE_HOST:localhost}:8081
+  section-url: http://${SECTION_SERVICE_HOST:localhost}:8083
 
 quota:
   free:
-    ai-calls: 5
-    ats-checks: 3
+    ai-calls: ${QUOTA_FREE_AI_CALLS:5}
+    ats-checks: ${QUOTA_FREE_ATS_CHECKS:3}
 
 management:
   endpoints:
     web:
       exposure:
         include: health,info
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html

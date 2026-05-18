@@ -28,7 +28,20 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             "/auth/users/",
             "/resumes/public",
             "/templates",
-            "/actuator"
+            "/actuator",
+            // Swagger / OpenAPI
+            "/swagger-ui",
+            "/swagger-ui.html",
+            "/v3/api-docs",
+            "/webjars/swagger-ui",
+            "/auth-service/v3/api-docs",
+            "/resume-service/v3/api-docs",
+            "/section-service/v3/api-docs",
+            "/ai-service/v3/api-docs",
+            "/template-service/v3/api-docs",
+            "/export-service/v3/api-docs",
+            "/jobmatch-service/v3/api-docs",
+            "/notification-service/v3/api-docs"
     );
 
     @Override

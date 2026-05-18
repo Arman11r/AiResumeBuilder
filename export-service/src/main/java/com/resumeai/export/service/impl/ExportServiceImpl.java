@@ -18,11 +18,13 @@ import com.itextpdf.layout.properties.UnitValue;
 import com.itextpdf.layout.borders.SolidBorder;
 import com.resumeai.export.dto.ExportJobResponse;
 import com.resumeai.export.dto.ExportRequest;
+import com.resumeai.export.dto.ExportCompletedEvent;
 import com.resumeai.export.entity.ExportJob;
 import com.resumeai.export.repository.ExportRepository;
 import com.resumeai.export.service.ExportService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Async;
@@ -45,6 +47,13 @@ public class ExportServiceImpl implements ExportService {
 
     private final ExportRepository exportRepository;
     private final RestTemplate restTemplate;
+    private final RabbitTemplate rabbitTemplate;
+
+    @Value("${rabbitmq.exchange.notification}")
+    private String notificationExchange;
+
+    @Value("${rabbitmq.routing.export-completed}")
+    private String exportCompletedRoutingKey;
 
     @Value("${services.resume-url}")
     private String resumeUrl;
@@ -128,6 +137,17 @@ public class ExportServiceImpl implements ExportService {
             job.setFileSizeKb(getFileSizeKb(filePath));
             exportRepository.save(job);
             log.info("Export job {} completed: {}", jobId, filePath);
+
+            // Publish event to RabbitMQ
+            ExportCompletedEvent event = ExportCompletedEvent.builder()
+                    .jobId(job.getJobId())
+                    .userId(job.getUserId())
+                    .fileUrl(job.getFileUrl())
+                    .format(job.getFormat().name())
+                    .completedAt(job.getCompletedAt())
+                    .build();
+            rabbitTemplate.convertAndSend(notificationExchange, exportCompletedRoutingKey, event);
+            log.info("Published ExportCompletedEvent for job {}", jobId);
 
         } catch (Exception e) {
             log.error("Export job {} failed: {}", jobId, e.getMessage(), e);

@@ -28,7 +28,7 @@ public class JobMatch {
     @Column(name = "company_name")
     private String companyName;
 
-    @Column(name = "apply_url", length = 1000)
+    @Column(name = "apply_url", columnDefinition = "TEXT")
     private String applyUrl;
 
     @Column(name = "job_description", columnDefinition = "TEXT")

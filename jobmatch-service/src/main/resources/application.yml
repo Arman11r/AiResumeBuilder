@@ -2,19 +2,21 @@ server:
   port: 8087
 
 spring:
+  config:
+    import: optional:file:../.env[.properties], optional:file:./.env[.properties]
   application:
     name: jobmatch-service
 
   datasource:
-    url: jdbc:mysql://localhost:3306/resumeai_jobmatch?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-    username: root
-    password: admin123
+    url: jdbc:mysql://${DB_HOST:localhost}:3306/resumeai_jobmatch?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${DB_USERNAME:root}
+    password: ${MYSQL_ROOT_PASSWORD:admin123}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
     hibernate:
       ddl-auto: validate
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
@@ -23,32 +25,36 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+  # ── Redis ─────────────────────────────────────────────────────────────────
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+      connect-timeout: 2000ms
+
 eureka:
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka/
+      defaultZone: http://${EUREKA_HOST:localhost}:8761/eureka/
   instance:
     prefer-ip-address: true
 
 jwt:
-  secret: resumeai-super-secret-key-change-in-production-2026
+  secret: ${JWT_SECRET:resumeai-super-secret-key-change-in-production-2026}
 
 services:
-  resume-url: http://localhost:8082
-  ai-url: http://localhost:8084
+  resume-url: http://${RESUME_SERVICE_HOST:localhost}:8082
+  ai-url: http://${AI_SERVICE_HOST:localhost}:8084
 
 # ──────────────────────────────────────────────────────────
 # Job Portal API Keys (via RapidAPI — https://rapidapi.com)
 # ──────────────────────────────────────────────────────────
-# To enable live job fetching:
-#   1. Sign up at https://rapidapi.com
-#   2. Subscribe to "JSearch" (covers LinkedIn, Naukri, Indeed etc.)
-#      URL: https://rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch
-#   3. Paste your key below
-# When key is blank or invalid the service falls back to realistic mock data.
+# When key is blank the service falls back to realistic mock data.
 jobmatch:
   rapidapi:
-    key: "6e5dd4b5f0mshde55c59175f2c0cp1dce91jsn87d25c354596"                               # ← PASTE YOUR RAPIDAPI KEY HERE
+    key: ${RAPIDAPI_KEY:}
     jsearch-host: jsearch.p.rapidapi.com
     jsearch-url: https://jsearch.p.rapidapi.com/search
 
@@ -57,3 +63,9 @@ management:
     web:
       exposure:
         include: health,info
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
