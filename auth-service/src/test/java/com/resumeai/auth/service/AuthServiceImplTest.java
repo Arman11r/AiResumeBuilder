@@ -24,10 +24,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-/**
- * Unit tests for {@link AuthServiceImpl}.
- * All tests follow the Arrange-Act-Assert (AAA) pattern.
- */
+// Unit tests verifying the core logic of this service.
 @ExtendWith(MockitoExtension.class)
 @DisplayName("AuthServiceImpl Tests")
 class AuthServiceImplTest {
@@ -35,6 +32,7 @@ class AuthServiceImplTest {
     @Mock private UserRepository userRepository;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private JwtUtil jwtUtil;
+    @Mock private TokenBlacklistService tokenBlacklistService;
 
     @InjectMocks
     private AuthServiceImpl authService;
@@ -74,7 +72,7 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("should register a new user and return a JWT token")
         void register_success() {
-            // Arrange
+            // 1. Set up the test conditions
             RegisterRequest request = buildRegisterRequest();
             when(userRepository.existsByEmail("john@example.com")).thenReturn(false);
             when(passwordEncoder.encode("secret123")).thenReturn("$2a$hashed");
@@ -82,10 +80,10 @@ class AuthServiceImplTest {
             when(userRepository.save(any(User.class))).thenReturn(saved);
             when(jwtUtil.generateToken(any(), eq("USER"))).thenReturn("jwt-token");
 
-            // Act
+            // 2. Run the method under test
             AuthResponse response = authService.register(request);
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(response).isNotNull();
             assertThat(response.getToken()).isEqualTo("jwt-token");
             assertThat(response.getEmail()).isEqualTo("john@example.com");
@@ -96,11 +94,11 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("should throw CONFLICT when email is already registered")
         void register_emailAlreadyExists_throwsConflict() {
-            // Arrange
+            // 1. Set up the test conditions
             RegisterRequest request = buildRegisterRequest();
             when(userRepository.existsByEmail("john@example.com")).thenReturn(true);
 
-            // Act & Assert
+            // Run and verify the expected outcome
             assertThatThrownBy(() -> authService.register(request))
                     .isInstanceOf(ResponseStatusException.class)
                     .hasMessageContaining("Email already registered");
@@ -120,7 +118,7 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("should return JWT token on valid credentials")
         void login_validCredentials_returnsToken() {
-            // Arrange
+            // 1. Set up the test conditions
             LoginRequest request = new LoginRequest();
             request.setEmail("john@example.com");
             request.setPassword("secret123");
@@ -130,10 +128,10 @@ class AuthServiceImplTest {
             when(passwordEncoder.matches("secret123", "$2a$hashed")).thenReturn(true);
             when(jwtUtil.generateToken("user-uuid-001", "USER")).thenReturn("jwt-token");
 
-            // Act
+            // 2. Run the method under test
             AuthResponse response = authService.login(request);
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(response.getToken()).isEqualTo("jwt-token");
             assertThat(response.getUserId()).isEqualTo("user-uuid-001");
         }
@@ -141,13 +139,13 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("should throw UNAUTHORIZED when email is not found")
         void login_unknownEmail_throwsUnauthorized() {
-            // Arrange
+            // 1. Set up the test conditions
             LoginRequest request = new LoginRequest();
             request.setEmail("ghost@example.com");
             request.setPassword("any");
             when(userRepository.findByEmail("ghost@example.com")).thenReturn(Optional.empty());
 
-            // Act & Assert
+            // Run and verify the expected outcome
             assertThatThrownBy(() -> authService.login(request))
                     .isInstanceOf(ResponseStatusException.class)
                     .hasMessageContaining("Invalid credentials");
@@ -156,7 +154,7 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("should throw UNAUTHORIZED when password does not match")
         void login_wrongPassword_throwsUnauthorized() {
-            // Arrange
+            // 1. Set up the test conditions
             LoginRequest request = new LoginRequest();
             request.setEmail("john@example.com");
             request.setPassword("wrong");
@@ -165,7 +163,7 @@ class AuthServiceImplTest {
             when(userRepository.findByEmail("john@example.com")).thenReturn(Optional.of(user));
             when(passwordEncoder.matches("wrong", "$2a$hashed")).thenReturn(false);
 
-            // Act & Assert
+            // Run and verify the expected outcome
             assertThatThrownBy(() -> authService.login(request))
                     .isInstanceOf(ResponseStatusException.class)
                     .hasMessageContaining("Invalid credentials");
@@ -174,7 +172,7 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("should throw UNAUTHORIZED when account is deactivated")
         void login_deactivatedAccount_throwsUnauthorized() {
-            // Arrange
+            // 1. Set up the test conditions
             LoginRequest request = new LoginRequest();
             request.setEmail("john@example.com");
             request.setPassword("secret123");
@@ -183,7 +181,7 @@ class AuthServiceImplTest {
             user.setActive(false);
             when(userRepository.findByEmail("john@example.com")).thenReturn(Optional.of(user));
 
-            // Act & Assert
+            // Run and verify the expected outcome
             assertThatThrownBy(() -> authService.login(request))
                     .isInstanceOf(ResponseStatusException.class)
                     .hasMessageContaining("Account deactivated");
@@ -201,27 +199,42 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("should return true for a valid token")
         void validateToken_validToken_returnsTrue() {
-            // Arrange
+            // 1. Set up the test conditions
             when(jwtUtil.validateToken("valid-jwt")).thenReturn(true);
 
-            // Act
+            // 2. Run the method under test
             boolean result = authService.validateToken("valid-jwt");
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(result).isTrue();
         }
 
         @Test
         @DisplayName("should return false for an invalid token")
         void validateToken_invalidToken_returnsFalse() {
-            // Arrange
+            // 1. Set up the test conditions
+            when(tokenBlacklistService.isBlacklisted("bad-jwt")).thenReturn(false);
             when(jwtUtil.validateToken("bad-jwt")).thenReturn(false);
 
-            // Act
+            // 2. Run the method under test
             boolean result = authService.validateToken("bad-jwt");
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(result).isFalse();
+        }
+
+        @Test
+        @DisplayName("should return false for a blacklisted token")
+        void validateToken_blacklistedToken_returnsFalse() {
+            // 1. Set up the test conditions
+            when(tokenBlacklistService.isBlacklisted("blacklisted-jwt")).thenReturn(true);
+
+            // 2. Run the method under test
+            boolean result = authService.validateToken("blacklisted-jwt");
+
+            // 3. Verify the outcome
+            assertThat(result).isFalse();
+            verify(jwtUtil, never()).validateToken(anyString());
         }
     }
 
@@ -236,27 +249,27 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("should issue a new token when current token is valid")
         void refreshToken_validToken_returnsNewToken() {
-            // Arrange
+            // 1. Set up the test conditions
             User user = buildActiveUser();
             when(jwtUtil.validateToken("old-jwt")).thenReturn(true);
             when(jwtUtil.extractUserId("old-jwt")).thenReturn("user-uuid-001");
             when(userRepository.findById("user-uuid-001")).thenReturn(Optional.of(user));
             when(jwtUtil.generateToken("user-uuid-001", "USER")).thenReturn("new-jwt");
 
-            // Act
+            // 2. Run the method under test
             AuthResponse response = authService.refreshToken("old-jwt");
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(response.getToken()).isEqualTo("new-jwt");
         }
 
         @Test
         @DisplayName("should throw UNAUTHORIZED when token is expired/invalid")
         void refreshToken_invalidToken_throwsUnauthorized() {
-            // Arrange
+            // 1. Set up the test conditions
             when(jwtUtil.validateToken("expired-jwt")).thenReturn(false);
 
-            // Act & Assert
+            // Run and verify the expected outcome
             assertThatThrownBy(() -> authService.refreshToken("expired-jwt"))
                     .isInstanceOf(ResponseStatusException.class)
                     .hasMessageContaining("Invalid or expired token");
@@ -274,14 +287,14 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("should return UserResponseDTO when user exists")
         void getUserById_existingUser_returnsDTO() {
-            // Arrange
+            // 1. Set up the test conditions
             User user = buildActiveUser();
             when(userRepository.findById("user-uuid-001")).thenReturn(Optional.of(user));
 
-            // Act
+            // 2. Run the method under test
             UserResponseDTO dto = authService.getUserById("user-uuid-001");
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(dto.getUserId()).isEqualTo("user-uuid-001");
             assertThat(dto.getEmail()).isEqualTo("john@example.com");
             assertThat(dto.getRole()).isEqualTo("USER");
@@ -290,10 +303,10 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("should throw NOT_FOUND when user does not exist")
         void getUserById_nonExistingUser_throwsNotFound() {
-            // Arrange
+            // 1. Set up the test conditions
             when(userRepository.findById("ghost-id")).thenReturn(Optional.empty());
 
-            // Act & Assert
+            // Run and verify the expected outcome
             assertThatThrownBy(() -> authService.getUserById("ghost-id"))
                     .isInstanceOf(ResponseStatusException.class)
                     .hasMessageContaining("User not found");
@@ -311,7 +324,7 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("should update full name and phone when both are provided")
         void updateProfile_withAllFields_updatesUser() {
-            // Arrange
+            // 1. Set up the test conditions
             User user = buildActiveUser();
             when(userRepository.findById("user-uuid-001")).thenReturn(Optional.of(user));
             when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -320,10 +333,10 @@ class AuthServiceImplTest {
             request.setFullName("Jane Doe");
             request.setPhone("+91-9999999999");
 
-            // Act
+            // 2. Run the method under test
             UserResponseDTO dto = authService.updateProfile("user-uuid-001", request);
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(dto.getFullName()).isEqualTo("Jane Doe");
             assertThat(dto.getPhone()).isEqualTo("+91-9999999999");
             verify(userRepository).save(any(User.class));
@@ -341,7 +354,7 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("should change password when current password matches")
         void changePassword_correctCurrentPassword_savesNewHash() {
-            // Arrange
+            // 1. Set up the test conditions
             User user = buildActiveUser();
             when(userRepository.findById("user-uuid-001")).thenReturn(Optional.of(user));
             when(passwordEncoder.matches("secret123", "$2a$hashed")).thenReturn(true);
@@ -352,10 +365,10 @@ class AuthServiceImplTest {
             request.setCurrentPassword("secret123");
             request.setNewPassword("newpass456");
 
-            // Act
+            // 2. Run the method under test
             authService.changePassword("user-uuid-001", request);
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(user.getPasswordHash()).isEqualTo("$2a$newhash");
             verify(userRepository).save(user);
         }
@@ -363,7 +376,7 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("should throw BAD_REQUEST when current password is incorrect")
         void changePassword_wrongCurrentPassword_throwsBadRequest() {
-            // Arrange
+            // 1. Set up the test conditions
             User user = buildActiveUser();
             when(userRepository.findById("user-uuid-001")).thenReturn(Optional.of(user));
             when(passwordEncoder.matches("wrong", "$2a$hashed")).thenReturn(false);
@@ -372,7 +385,7 @@ class AuthServiceImplTest {
             request.setCurrentPassword("wrong");
             request.setNewPassword("newpass456");
 
-            // Act & Assert
+            // Run and verify the expected outcome
             assertThatThrownBy(() -> authService.changePassword("user-uuid-001", request))
                     .isInstanceOf(ResponseStatusException.class)
                     .hasMessageContaining("Current password is incorrect");
@@ -390,26 +403,26 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("should update subscription plan to PREMIUM")
         void updateSubscription_validPlan_savesUser() {
-            // Arrange
+            // 1. Set up the test conditions
             User user = buildActiveUser();
             when(userRepository.findById("user-uuid-001")).thenReturn(Optional.of(user));
             when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
-            // Act
+            // 2. Run the method under test
             authService.updateSubscription("user-uuid-001", "PREMIUM");
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(user.getSubscriptionPlan()).isEqualTo(User.SubscriptionPlan.PREMIUM);
         }
 
         @Test
         @DisplayName("should throw BAD_REQUEST for invalid subscription plan")
         void updateSubscription_invalidPlan_throwsBadRequest() {
-            // Arrange
+            // 1. Set up the test conditions
             User user = buildActiveUser();
             when(userRepository.findById("user-uuid-001")).thenReturn(Optional.of(user));
 
-            // Act & Assert
+            // Run and verify the expected outcome
             assertThatThrownBy(() -> authService.updateSubscription("user-uuid-001", "GOLD"))
                     .isInstanceOf(ResponseStatusException.class)
                     .hasMessageContaining("Invalid subscription plan");
@@ -427,15 +440,15 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("should set isActive to false and save")
         void deactivateAccount_activeUser_setsInactive() {
-            // Arrange
+            // 1. Set up the test conditions
             User user = buildActiveUser();
             when(userRepository.findById("user-uuid-001")).thenReturn(Optional.of(user));
             when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
-            // Act
+            // 2. Run the method under test
             authService.deactivateAccount("user-uuid-001");
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(user.isActive()).isFalse();
             verify(userRepository).save(user);
         }
@@ -452,7 +465,7 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("should compute correct totals from user list")
         void getPlatformStats_mixedUsers_returnsCorrectCounts() {
-            // Arrange
+            // 1. Set up the test conditions
             User activeUser = buildActiveUser();
             User premiumUser = User.builder()
                     .userId("user-uuid-002").fullName("Jane").email("jane@example.com")
@@ -465,10 +478,10 @@ class AuthServiceImplTest {
 
             when(userRepository.findAll()).thenReturn(List.of(activeUser, premiumUser, suspendedUser));
 
-            // Act
+            // 2. Run the method under test
             Map<String, Object> stats = authService.getPlatformStats();
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(stats)
                     .containsEntry("totalUsers", 3L)
                     .containsEntry("activeUsers", 2L)
@@ -488,31 +501,31 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("should suspend (deactivate) a user when suspend=true")
         void adminSuspendUser_suspend_setsInactive() {
-            // Arrange
+            // 1. Set up the test conditions
             User user = buildActiveUser();
             when(userRepository.findById("user-uuid-001")).thenReturn(Optional.of(user));
             when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
-            // Act
+            // 2. Run the method under test
             authService.adminSuspendUser("user-uuid-001", true);
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(user.isActive()).isFalse();
         }
 
         @Test
         @DisplayName("should unsuspend (activate) a user when suspend=false")
         void adminSuspendUser_unsuspend_setsActive() {
-            // Arrange
+            // 1. Set up the test conditions
             User user = buildActiveUser();
             user.setActive(false);
             when(userRepository.findById("user-uuid-001")).thenReturn(Optional.of(user));
             when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
-            // Act
+            // 2. Run the method under test
             authService.adminSuspendUser("user-uuid-001", false);
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(user.isActive()).isTrue();
         }
     }
@@ -528,24 +541,24 @@ class AuthServiceImplTest {
         @Test
         @DisplayName("should delete user when found")
         void adminDeleteUser_existingUser_deletesFromRepo() {
-            // Arrange
+            // 1. Set up the test conditions
             User user = buildActiveUser();
             when(userRepository.findById("user-uuid-001")).thenReturn(Optional.of(user));
 
-            // Act
+            // 2. Run the method under test
             authService.adminDeleteUser("user-uuid-001");
 
-            // Assert
+            // 3. Verify the outcome
             verify(userRepository).delete(user);
         }
 
         @Test
         @DisplayName("should throw NOT_FOUND when user does not exist")
         void adminDeleteUser_nonExistingUser_throwsNotFound() {
-            // Arrange
+            // 1. Set up the test conditions
             when(userRepository.findById("ghost-id")).thenReturn(Optional.empty());
 
-            // Act & Assert
+            // Run and verify the expected outcome
             assertThatThrownBy(() -> authService.adminDeleteUser("ghost-id"))
                     .isInstanceOf(ResponseStatusException.class)
                     .hasMessageContaining("User not found");

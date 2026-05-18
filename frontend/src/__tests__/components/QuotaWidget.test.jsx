@@ -1,28 +1,16 @@
-/**
- * Tests for src/components/QuotaWidget.jsx
- *
- * Covers:
- *   - renders nothing when quota is null (API not yet loaded)
- *   - shows "Premium Plan: Unlimited AI Requests" for premium users
- *   - shows "Free Daily Quota" panel for free users
- *   - displays correct remaining counts
- *   - shows "0 left" when quota is exhausted
- *   - does NOT call api.get when user is not logged in
- *
- * All tests follow the Arrange-Act-Assert (AAA) pattern.
- */
+
 
 import React from 'react';
 import { render, screen, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
-// ── Mock api BEFORE importing the component ───────────────────────────────────
+// Mock api BEFORE importing the component
 jest.mock('../../services/api', () => ({
   __esModule: true,
   default: { get: jest.fn() },
 }));
 
-// ── Mock AuthContext: use require() inside factory so React is in scope ───────
+// Mock AuthContext: use require() inside factory so React is in scope  
 jest.mock('../../context/AuthContext', () => {
   const React = require('react');
   return {
@@ -34,7 +22,7 @@ import api from '../../services/api';
 import { AuthContext } from '../../context/AuthContext';
 import QuotaWidget from '../../components/QuotaWidget';
 
-// ── Helper: wrap component in a context provider ──────────────────────────────
+// Helper: wrap component in a context provider
 function renderWithUser(userValue) {
   return render(
     <AuthContext.Provider value={{ user: userValue }}>
@@ -43,9 +31,7 @@ function renderWithUser(userValue) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // No user logged in
-// ─────────────────────────────────────────────────────────────────────────────
 
 describe('QuotaWidget – no user', () => {
   afterEach(() => jest.clearAllMocks());
@@ -60,16 +46,15 @@ describe('QuotaWidget – no user', () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
+
 // Loading state (API pending)
-// ─────────────────────────────────────────────────────────────────────────────
 
 describe('QuotaWidget – loading state', () => {
   afterEach(() => jest.clearAllMocks());
 
   test('renders nothing while the quota API call is in-flight', async () => {
     // Arrange – promise that never resolves = perpetual loading
-    api.get.mockImplementation(() => new Promise(() => {}));
+    api.get.mockImplementation(() => new Promise(() => { }));
 
     // Act
     const { container } = render(
@@ -83,9 +68,9 @@ describe('QuotaWidget – loading state', () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
+
 // Premium user
-// ─────────────────────────────────────────────────────────────────────────────
+
 
 describe('QuotaWidget – premium user', () => {
   beforeEach(() => {
@@ -110,9 +95,9 @@ describe('QuotaWidget – premium user', () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
+
 // Free user — quota available
-// ─────────────────────────────────────────────────────────────────────────────
+
 
 describe('QuotaWidget – free user with remaining quota', () => {
   beforeEach(() => {
@@ -161,9 +146,9 @@ describe('QuotaWidget – free user with remaining quota', () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
+
 // Free user — quota exhausted
-// ─────────────────────────────────────────────────────────────────────────────
+
 
 describe('QuotaWidget – free user with exhausted quota', () => {
   beforeEach(() => {

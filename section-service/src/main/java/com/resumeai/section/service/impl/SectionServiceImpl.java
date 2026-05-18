@@ -73,10 +73,7 @@ public class SectionServiceImpl implements SectionService {
         return toResponse(sectionRepository.save(section));
     }
 
-    /**
-     * Atomically updates displayOrder for all sections in the list.
-     * Receives [{sectionId, displayOrder}, ...] and bulk-saves in one transaction.
-     */
+    // Updates the display order for multiple sections at once, running as a single transaction to ensure consistency.
     @Override
     @Transactional
     public void reorderSections(List<SectionOrderDTO> newOrder) {
@@ -99,10 +96,7 @@ public class SectionServiceImpl implements SectionService {
         sectionRepository.saveAll(sections);
     }
 
-    /**
-     * Batch save all sections for a resume atomically (called from builder UI).
-     * Matches sections by sectionId when content fields are supplied inline.
-     */
+    // Performs a bulk save of the resume sections. This is really handy when the frontend builder sends inline content updates.
     @Override
     @Transactional
     public List<SectionResponse> bulkUpdateSections(List<UpdateSectionRequest> updates, String resumeId) {

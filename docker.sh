@@ -1,8 +1,4 @@
 #!/usr/bin/env bash
-# ─────────────────────────────────────────────────────────────────────────────
-#  ResumeAI Docker helper
-#  Usage: ./docker.sh [command]
-# ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
 COMPOSE="docker compose"

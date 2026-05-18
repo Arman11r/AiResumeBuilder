@@ -40,6 +40,7 @@ export default function JobMatch() {
   const [location, setLocation] = useState('');
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loadingSource, setLoadingSource] = useState(null);
   const [expandedJob, setExpandedJob] = useState(null);
   const [bookmarking, setBookmarking] = useState(null);
   const [activeView, setActiveView] = useState('search'); // 'search' or 'bookmarks'
@@ -58,6 +59,7 @@ export default function JobMatch() {
 
   const fetchBookmarks = async () => {
     setLoading(true);
+    setLoadingSource('bookmarks');
     try {
       const res = await api.get(`/job-matches/bookmarked/${user.userId}`);
       setBookmarkedJobs(res.data || []);
@@ -65,6 +67,7 @@ export default function JobMatch() {
       showToast('Failed to fetch bookmarks', 'error');
     } finally {
       setLoading(false);
+      setLoadingSource(null);
     }
   };
 
@@ -77,6 +80,7 @@ export default function JobMatch() {
       return showToast('Select a resume and enter a job title', 'error');
     }
     setLoading(true);
+    setLoadingSource(source);
     setJobs([]);
     try {
       const endpoint = source === 'linkedin' ? '/job-matches/fetch-linkedin' : '/job-matches/fetch-naukri';
@@ -101,6 +105,7 @@ export default function JobMatch() {
       showToast('Failed to fetch jobs. Please try again.', 'error');
     } finally {
       setLoading(false);
+      setLoadingSource(null);
     }
   };
 
@@ -260,7 +265,7 @@ export default function JobMatch() {
                 onClick={() => handleSearch('linkedin')}
                 disabled={loading}
               >
-                {loading ? <span className="spinner"></span> : <SearchIcon />}
+                {loadingSource === 'linkedin' ? <span className="spinner"></span> : <SearchIcon />}
                 Search LinkedIn
               </button>
               <button
@@ -268,7 +273,7 @@ export default function JobMatch() {
                 onClick={() => handleSearch('naukri')}
                 disabled={loading}
               >
-                {loading ? <span className="spinner spinner-dark"></span> : <SearchIcon />}
+                {loadingSource === 'naukri' ? <span className="spinner spinner-dark"></span> : <SearchIcon />}
                 Search Naukri
               </button>
               {jobs.length > 0 && !loading && (

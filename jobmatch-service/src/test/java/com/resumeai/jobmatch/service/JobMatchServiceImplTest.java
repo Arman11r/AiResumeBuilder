@@ -24,10 +24,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-/**
- * Unit tests for {@link JobMatchServiceImpl}.
- * All tests follow the Arrange-Act-Assert (AAA) pattern.
- */
+// Unit tests verifying the core logic of this service.
 @ExtendWith(MockitoExtension.class)
 @DisplayName("JobMatchServiceImpl Tests")
 class JobMatchServiceImplTest {
@@ -84,7 +81,7 @@ class JobMatchServiceImplTest {
         @Test
         @DisplayName("should analyse job fit and save a JobMatch record")
         void analyzeJobFit_validRequest_savesAndReturnsResponse() {
-            // Arrange
+            // 1. Set up the test conditions
             AnalyzeJobFitRequest request = buildAnalyzeRequest();
 
             // Resume service returns empty (no resume text) — score falls back to minimum
@@ -93,10 +90,10 @@ class JobMatchServiceImplTest {
             JobMatch saved = buildMatch("match-001", "user-001", 40, false);
             when(jobMatchRepository.save(any(JobMatch.class))).thenReturn(saved);
 
-            // Act
+            // 2. Run the method under test
             JobMatchResponse response = jobMatchService.analyzeJobFit(request);
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(response.getMatchId()).isEqualTo("match-001");
             assertThat(response.getUserId()).isEqualTo("user-001");
             verify(jobMatchRepository).save(any(JobMatch.class));
@@ -105,7 +102,7 @@ class JobMatchServiceImplTest {
         @Test
         @DisplayName("should compute a higher score when resume contains job keywords")
         void analyzeJobFit_resumeContainsKeywords_givesHigherScore() {
-            // Arrange
+            // 1. Set up the test conditions
             AnalyzeJobFitRequest request = buildAnalyzeRequest();
 
             // Return a resume text that contains job keywords
@@ -122,10 +119,10 @@ class JobMatchServiceImplTest {
                 return buildMatch("match-002", "user-001", m.getMatchScore(), false);
             });
 
-            // Act
+            // 2. Run the method under test
             JobMatchResponse response = jobMatchService.analyzeJobFit(request);
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(response).isNotNull();
         }
     }
@@ -141,15 +138,15 @@ class JobMatchServiceImplTest {
         @Test
         @DisplayName("should return all job matches for a user")
         void getMatchesByUser_existingUser_returnsList() {
-            // Arrange
+            // 1. Set up the test conditions
             JobMatch m1 = buildMatch("match-001", "user-001", 82, false);
             JobMatch m2 = buildMatch("match-002", "user-001", 65, false);
             when(jobMatchRepository.findByUserId("user-001")).thenReturn(List.of(m1, m2));
 
-            // Act
+            // 2. Run the method under test
             List<JobMatchResponse> responses = jobMatchService.getMatchesByUser("user-001");
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(responses).hasSize(2);
             assertThat(responses).extracting(JobMatchResponse::getMatchId)
                     .containsExactly("match-001", "match-002");
@@ -158,13 +155,13 @@ class JobMatchServiceImplTest {
         @Test
         @DisplayName("should return empty list when user has no matches")
         void getMatchesByUser_noMatches_returnsEmptyList() {
-            // Arrange
+            // 1. Set up the test conditions
             when(jobMatchRepository.findByUserId("user-002")).thenReturn(List.of());
 
-            // Act
+            // 2. Run the method under test
             List<JobMatchResponse> responses = jobMatchService.getMatchesByUser("user-002");
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(responses).isEmpty();
         }
     }
@@ -180,14 +177,14 @@ class JobMatchServiceImplTest {
         @Test
         @DisplayName("should return matches associated with a specific resume")
         void getMatchesByResume_existingResume_returnsList() {
-            // Arrange
+            // 1. Set up the test conditions
             JobMatch m1 = buildMatch("match-001", "user-001", 78, false);
             when(jobMatchRepository.findByResumeId("resume-001")).thenReturn(List.of(m1));
 
-            // Act
+            // 2. Run the method under test
             List<JobMatchResponse> responses = jobMatchService.getMatchesByResume("resume-001");
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(responses).hasSize(1);
             assertThat(responses.get(0).getResumeId()).isEqualTo("resume-001");
         }
@@ -204,17 +201,17 @@ class JobMatchServiceImplTest {
         @Test
         @DisplayName("should return at most 'limit' matches ordered by score descending")
         void getTopMatches_withLimit_returnsLimitedList() {
-            // Arrange
+            // 1. Set up the test conditions
             JobMatch m1 = buildMatch("m-001", "user-001", 90, false);
             JobMatch m2 = buildMatch("m-002", "user-001", 75, false);
             JobMatch m3 = buildMatch("m-003", "user-001", 60, false);
             when(jobMatchRepository.findByUserIdOrderByMatchScoreDesc("user-001"))
                     .thenReturn(List.of(m1, m2, m3));
 
-            // Act
+            // 2. Run the method under test
             List<JobMatchResponse> responses = jobMatchService.getTopMatches("user-001", 2);
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(responses).hasSize(2);
             assertThat(responses.get(0).getMatchScore()).isEqualTo(90);
             assertThat(responses.get(1).getMatchScore()).isEqualTo(75);
@@ -232,15 +229,15 @@ class JobMatchServiceImplTest {
         @Test
         @DisplayName("should return only bookmarked matches for the user")
         void getBookmarkedMatches_withBookmarks_returnsOnlyBookmarked() {
-            // Arrange
+            // 1. Set up the test conditions
             JobMatch bookmarked = buildMatch("m-001", "user-001", 82, true);
             when(jobMatchRepository.findByUserIdAndIsBookmarkedTrue("user-001"))
                     .thenReturn(List.of(bookmarked));
 
-            // Act
+            // 2. Run the method under test
             List<JobMatchResponse> responses = jobMatchService.getBookmarkedMatches("user-001");
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(responses).hasSize(1);
             assertThat(responses.get(0).isBookmarked()).isTrue();
         }
@@ -257,40 +254,40 @@ class JobMatchServiceImplTest {
         @Test
         @DisplayName("should toggle bookmark from false to true")
         void bookmarkMatch_unbookmarked_becomesBookmarked() {
-            // Arrange
+            // 1. Set up the test conditions
             JobMatch match = buildMatch("m-001", "user-001", 82, false);
             when(jobMatchRepository.findById("m-001")).thenReturn(Optional.of(match));
             when(jobMatchRepository.save(any(JobMatch.class))).thenAnswer(inv -> inv.getArgument(0));
 
-            // Act
+            // 2. Run the method under test
             JobMatchResponse response = jobMatchService.bookmarkMatch("m-001");
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(response.isBookmarked()).isTrue();
         }
 
         @Test
         @DisplayName("should toggle bookmark from true to false")
         void bookmarkMatch_bookmarked_becomesUnbookmarked() {
-            // Arrange
+            // 1. Set up the test conditions
             JobMatch match = buildMatch("m-001", "user-001", 82, true);
             when(jobMatchRepository.findById("m-001")).thenReturn(Optional.of(match));
             when(jobMatchRepository.save(any(JobMatch.class))).thenAnswer(inv -> inv.getArgument(0));
 
-            // Act
+            // 2. Run the method under test
             JobMatchResponse response = jobMatchService.bookmarkMatch("m-001");
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(response.isBookmarked()).isFalse();
         }
 
         @Test
         @DisplayName("should throw NOT_FOUND when match does not exist")
         void bookmarkMatch_nonExistingMatch_throwsNotFound() {
-            // Arrange
+            // 1. Set up the test conditions
             when(jobMatchRepository.findById("ghost-id")).thenReturn(Optional.empty());
 
-            // Act & Assert
+            // Run and verify the expected outcome
             assertThatThrownBy(() -> jobMatchService.bookmarkMatch("ghost-id"))
                     .isInstanceOf(ResponseStatusException.class)
                     .hasMessageContaining("Job match not found");
@@ -308,7 +305,7 @@ class JobMatchServiceImplTest {
         @Test
         @DisplayName("should return 3 mock matches when no RapidAPI key is configured")
         void fetchJobsFromLinkedIn_noApiKey_returnsMockData() {
-            // Arrange
+            // 1. Set up the test conditions
             injectValues(); // rapidApiKey = ""
             FetchJobsRequest request = new FetchJobsRequest();
             request.setResumeId("resume-001");
@@ -319,10 +316,10 @@ class JobMatchServiceImplTest {
             when(restTemplate.getForObject(anyString(), eq(java.util.Map.class))).thenReturn(null);
             when(jobMatchRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
 
-            // Act
+            // 2. Run the method under test
             List<JobMatchResponse> responses = jobMatchService.fetchJobsFromLinkedIn(request);
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(responses)
                     .hasSize(3)
                     .allMatch(r -> r.getSource().equals("LINKEDIN"));
@@ -340,7 +337,7 @@ class JobMatchServiceImplTest {
         @Test
         @DisplayName("should return 3 mock matches tagged as NAUKRI source")
         void fetchJobsFromNaukri_noApiKey_returnsMockData() {
-            // Arrange
+            // 1. Set up the test conditions
             injectValues();
             FetchJobsRequest request = new FetchJobsRequest();
             request.setResumeId("resume-001");
@@ -351,10 +348,10 @@ class JobMatchServiceImplTest {
             when(restTemplate.getForObject(anyString(), eq(java.util.Map.class))).thenReturn(null);
             when(jobMatchRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
 
-            // Act
+            // 2. Run the method under test
             List<JobMatchResponse> responses = jobMatchService.fetchJobsFromNaukri(request);
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(responses)
                     .hasSize(3)
                     .allMatch(r -> r.getSource().equals("NAUKRI"));
@@ -372,24 +369,24 @@ class JobMatchServiceImplTest {
         @Test
         @DisplayName("should delete the match when it exists")
         void deleteMatch_existingMatch_deletesFromRepo() {
-            // Arrange
+            // 1. Set up the test conditions
             JobMatch match = buildMatch("m-001", "user-001", 82, false);
             when(jobMatchRepository.findById("m-001")).thenReturn(Optional.of(match));
 
-            // Act
+            // 2. Run the method under test
             jobMatchService.deleteMatch("m-001");
 
-            // Assert
+            // 3. Verify the outcome
             verify(jobMatchRepository).delete(match);
         }
 
         @Test
         @DisplayName("should throw NOT_FOUND when match does not exist")
         void deleteMatch_nonExistingMatch_throwsNotFound() {
-            // Arrange
+            // 1. Set up the test conditions
             when(jobMatchRepository.findById("ghost-id")).thenReturn(Optional.empty());
 
-            // Act & Assert
+            // Run and verify the expected outcome
             assertThatThrownBy(() -> jobMatchService.deleteMatch("ghost-id"))
                     .isInstanceOf(ResponseStatusException.class)
                     .hasMessageContaining("Job match not found");

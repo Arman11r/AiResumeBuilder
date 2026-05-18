@@ -47,20 +47,14 @@ public class SectionResource {
         return ResponseEntity.ok(sectionService.updateSection(sectionId, request));
     }
 
-    /**
-     * Reorder sections atomically.
-     * Body: [{"sectionId": "...", "displayOrder": 0}, ...]
-     */
+    // Allows the frontend to pass a list of IDs and their new order, saving everything at once.
     @PutMapping("/reorder")
     public ResponseEntity<Void> reorder(@Valid @RequestBody List<SectionOrderDTO> newOrder) {
         sectionService.reorderSections(newOrder);
         return ResponseEntity.noContent().build();
     }
 
-    /**
-     * Bulk update all sections for a resume atomically (called from builder UI save).
-     * Body: list of UpdateSectionRequest objects (positionally matched to existing sections).
-     */
+    // Handles full-page saves from the builder UI by updating multiple sections simultaneously.
     @PutMapping("/bulk")
     public ResponseEntity<List<SectionResponse>> bulkUpdate(
             @RequestParam String resumeId,
@@ -79,9 +73,7 @@ public class SectionResource {
         return ResponseEntity.noContent().build();
     }
 
-    /**
-     * Delete all sections for a resume (called when a resume is deleted).
-     */
+    // Triggered automatically when a parent resume is deleted.
     @DeleteMapping("/resume/{resumeId}")
     public ResponseEntity<Void> deleteByResume(@PathVariable String resumeId) {
         sectionService.deleteSectionsByResumeId(resumeId);

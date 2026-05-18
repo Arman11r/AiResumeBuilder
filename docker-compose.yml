@@ -1,8 +1,9 @@
 version: "3.9"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# ResumeAI — Full-stack Docker Compose
-# All localhost references in application.yml are overridden via SPRING_ env vars
+# Spin up the entire ResumeAI microservices architecture locally.
+# We override all localhost endpoints here using standard SPRING_ env variables
+# to ensure everything resolves flawlessly through our containerised network.
 # ─────────────────────────────────────────────────────────────────────────────
 
 networks:
@@ -22,7 +23,7 @@ services:
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-admin123}
-      MYSQL_DATABASE: resumeai_auth          # first DB; others are auto-created
+      MYSQL_DATABASE: resumeai_auth          # We spin up the auth database first; Hibernate automatically initializes the other schema names on startup.
     ports:
       - "3306:3306"
     volumes:

@@ -22,10 +22,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-/**
- * Unit tests for {@link NotificationServiceImpl}.
- * All tests follow the Arrange-Act-Assert (AAA) pattern.
- */
+// Unit tests verifying the core logic of this service.
 @ExtendWith(MockitoExtension.class)
 @DisplayName("NotificationServiceImpl Tests")
 class NotificationServiceImplTest {
@@ -69,15 +66,15 @@ class NotificationServiceImplTest {
         @Test
         @DisplayName("should save and return a notification response")
         void send_validRequest_savesAndReturnsResponse() {
-            // Arrange
+            // 1. Set up the test conditions
             SendNotificationRequest request = buildSendRequest();
             Notification saved = buildNotification("notif-001", false);
             when(notificationRepository.save(any(Notification.class))).thenReturn(saved);
 
-            // Act
+            // 2. Run the method under test
             NotificationResponse response = notificationService.send(request);
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(response).isNotNull();
             assertThat(response.getNotificationId()).isEqualTo("notif-001");
             assertThat(response.isRead()).isFalse();
@@ -87,7 +84,7 @@ class NotificationServiceImplTest {
         @Test
         @DisplayName("should auto-generate title from type when title is blank")
         void send_blankTitle_usesFormattedTypeAsTitle() {
-            // Arrange
+            // 1. Set up the test conditions
             SendNotificationRequest request = buildSendRequest();
             request.setTitle(""); // blank – should trigger formatTitle()
             request.setType("PLAN_UPGRADED");
@@ -103,21 +100,21 @@ class NotificationServiceImplTest {
                     .build();
             when(notificationRepository.save(any(Notification.class))).thenReturn(saved);
 
-            // Act
+            // 2. Run the method under test
             NotificationResponse response = notificationService.send(request);
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(response.getTitle()).isEqualTo("Plan upgraded");
         }
 
         @Test
         @DisplayName("should throw BAD_REQUEST for an invalid notification type")
         void send_invalidType_throwsBadRequest() {
-            // Arrange
+            // 1. Set up the test conditions
             SendNotificationRequest request = buildSendRequest();
             request.setType("INVALID_TYPE");
 
-            // Act & Assert
+            // Run and verify the expected outcome
             assertThatThrownBy(() -> notificationService.send(request))
                     .isInstanceOf(ResponseStatusException.class)
                     .hasMessageContaining("Invalid notification type");
@@ -126,7 +123,7 @@ class NotificationServiceImplTest {
         @Test
         @DisplayName("should fall back to APP channel when channel is unrecognised")
         void send_unknownChannel_defaultsToApp() {
-            // Arrange
+            // 1. Set up the test conditions
             SendNotificationRequest request = buildSendRequest();
             request.setChannel("SLACK"); // not a valid channel
 
@@ -134,10 +131,10 @@ class NotificationServiceImplTest {
             // The service falls back to APP silently, so just verify save is called
             when(notificationRepository.save(any(Notification.class))).thenReturn(saved);
 
-            // Act
+            // 2. Run the method under test
             NotificationResponse response = notificationService.send(request);
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(response).isNotNull();
             verify(notificationRepository).save(argThat(n ->
                     n.getChannel() == Notification.Channel.APP));
@@ -155,17 +152,17 @@ class NotificationServiceImplTest {
         @Test
         @DisplayName("should save one notification per recipient")
         void sendBulk_multipleRecipients_savesAll() {
-            // Arrange
+            // 1. Set up the test conditions
             BroadcastRequest request = new BroadcastRequest();
             request.setRecipientIds(List.of("user-001", "user-002", "user-003"));
             request.setType("ADMIN_BROADCAST");
             request.setTitle("Maintenance tonight");
             request.setMessage("The system will be down at midnight.");
 
-            // Act
+            // 2. Run the method under test
             notificationService.sendBulk(request);
 
-            // Assert
+            // 3. Verify the outcome
             verify(notificationRepository).saveAll(argThat((List<Notification> list) ->
                     list.size() == 3));
         }
@@ -173,32 +170,32 @@ class NotificationServiceImplTest {
         @Test
         @DisplayName("should do nothing when recipient list is empty")
         void sendBulk_emptyRecipients_doesNotSave() {
-            // Arrange
+            // 1. Set up the test conditions
             BroadcastRequest request = new BroadcastRequest();
             request.setRecipientIds(List.of());
             request.setType("ADMIN_BROADCAST");
             request.setMessage("Ignored.");
 
-            // Act
+            // 2. Run the method under test
             notificationService.sendBulk(request);
 
-            // Assert
+            // 3. Verify the outcome
             verify(notificationRepository, never()).saveAll(any());
         }
 
         @Test
         @DisplayName("should do nothing when recipient list is null")
         void sendBulk_nullRecipients_doesNotSave() {
-            // Arrange
+            // 1. Set up the test conditions
             BroadcastRequest request = new BroadcastRequest();
             request.setRecipientIds(null);
             request.setType("ADMIN_BROADCAST");
             request.setMessage("Ignored.");
 
-            // Act
+            // 2. Run the method under test
             notificationService.sendBulk(request);
 
-            // Assert
+            // 3. Verify the outcome
             verify(notificationRepository, never()).saveAll(any());
         }
     }
@@ -214,15 +211,15 @@ class NotificationServiceImplTest {
         @Test
         @DisplayName("should set isRead=true and return the updated notification")
         void markAsRead_unreadNotification_marksRead() {
-            // Arrange
+            // 1. Set up the test conditions
             Notification notif = buildNotification("notif-001", false);
             when(notificationRepository.findById("notif-001")).thenReturn(Optional.of(notif));
             when(notificationRepository.save(any(Notification.class))).thenAnswer(inv -> inv.getArgument(0));
 
-            // Act
+            // 2. Run the method under test
             NotificationResponse response = notificationService.markAsRead("notif-001");
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(response.isRead()).isTrue();
             verify(notificationRepository).save(notif);
         }
@@ -230,10 +227,10 @@ class NotificationServiceImplTest {
         @Test
         @DisplayName("should throw NOT_FOUND when notification does not exist")
         void markAsRead_nonExistingNotification_throwsNotFound() {
-            // Arrange
+            // 1. Set up the test conditions
             when(notificationRepository.findById("ghost-id")).thenReturn(Optional.empty());
 
-            // Act & Assert
+            // Run and verify the expected outcome
             assertThatThrownBy(() -> notificationService.markAsRead("ghost-id"))
                     .isInstanceOf(ResponseStatusException.class)
                     .hasMessageContaining("Notification not found");
@@ -251,16 +248,16 @@ class NotificationServiceImplTest {
         @Test
         @DisplayName("should mark all unread notifications as read for a recipient")
         void markAllRead_withUnreadNotifications_marksAll() {
-            // Arrange
+            // 1. Set up the test conditions
             Notification n1 = buildNotification("notif-001", false);
             Notification n2 = buildNotification("notif-002", false);
             when(notificationRepository.findByRecipientIdAndIsReadFalseOrderBySentAtDesc("user-001"))
                     .thenReturn(List.of(n1, n2));
 
-            // Act
+            // 2. Run the method under test
             notificationService.markAllRead("user-001");
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(n1.isRead()).isTrue();
             assertThat(n2.isRead()).isTrue();
             verify(notificationRepository).saveAll(List.of(n1, n2));
@@ -269,14 +266,14 @@ class NotificationServiceImplTest {
         @Test
         @DisplayName("should do nothing when there are no unread notifications")
         void markAllRead_noUnread_savesEmptyList() {
-            // Arrange
+            // 1. Set up the test conditions
             when(notificationRepository.findByRecipientIdAndIsReadFalseOrderBySentAtDesc("user-001"))
                     .thenReturn(List.of());
 
-            // Act
+            // 2. Run the method under test
             notificationService.markAllRead("user-001");
 
-            // Assert
+            // 3. Verify the outcome
             verify(notificationRepository).saveAll(List.of());
         }
     }
@@ -292,16 +289,16 @@ class NotificationServiceImplTest {
         @Test
         @DisplayName("should return sorted notifications for the recipient")
         void getByRecipient_withNotifications_returnsList() {
-            // Arrange
+            // 1. Set up the test conditions
             Notification n1 = buildNotification("notif-001", true);
             Notification n2 = buildNotification("notif-002", false);
             when(notificationRepository.findByRecipientIdOrderBySentAtDesc("user-001"))
                     .thenReturn(List.of(n1, n2));
 
-            // Act
+            // 2. Run the method under test
             List<NotificationResponse> responses = notificationService.getByRecipient("user-001");
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(responses).hasSize(2);
         }
     }
@@ -317,13 +314,13 @@ class NotificationServiceImplTest {
         @Test
         @DisplayName("should return the count of unread notifications")
         void getUnreadCount_returnsCorrectCount() {
-            // Arrange
+            // 1. Set up the test conditions
             when(notificationRepository.countByRecipientIdAndIsReadFalse("user-001")).thenReturn(5L);
 
-            // Act
+            // 2. Run the method under test
             long count = notificationService.getUnreadCount("user-001");
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(count).isEqualTo(5L);
         }
     }
@@ -339,24 +336,24 @@ class NotificationServiceImplTest {
         @Test
         @DisplayName("should delete the notification when it exists")
         void deleteNotification_existingNotification_deletesFromRepo() {
-            // Arrange
+            // 1. Set up the test conditions
             Notification notif = buildNotification("notif-001", false);
             when(notificationRepository.findById("notif-001")).thenReturn(Optional.of(notif));
 
-            // Act
+            // 2. Run the method under test
             notificationService.deleteNotification("notif-001");
 
-            // Assert
+            // 3. Verify the outcome
             verify(notificationRepository).delete(notif);
         }
 
         @Test
         @DisplayName("should throw NOT_FOUND when notification does not exist")
         void deleteNotification_nonExistingNotification_throwsNotFound() {
-            // Arrange
+            // 1. Set up the test conditions
             when(notificationRepository.findById("ghost-id")).thenReturn(Optional.empty());
 
-            // Act & Assert
+            // Run and verify the expected outcome
             assertThatThrownBy(() -> notificationService.deleteNotification("ghost-id"))
                     .isInstanceOf(ResponseStatusException.class)
                     .hasMessageContaining("Notification not found");

@@ -119,15 +119,13 @@ public class JobMatchServiceImpl implements JobMatchService {
 
     // ── JSearch API Integration ───────────────────────────────────────────────
 
-    /**
-     * Fetches live jobs via RapidAPI JSearch (aggregates LinkedIn, Indeed, Naukri, etc.).
-     * Falls back to realistic mock data if no API key is configured.
-     */
+    // Pulls real-time job listings from the JSearch API.
+    // If the API key isn't set up, it gracefully falls back to using mock data so the app doesn't break.
     @SuppressWarnings("unchecked")
     private List<JobMatchResponse> fetchJobsFromJSearch(
             FetchJobsRequest request, JobMatch.Source source, String platformFilter) {
 
-        // Fall back to mock when key is absent
+        // Use our dummy data if the API key is missing
         if (rapidApiKey == null || rapidApiKey.isBlank()) {
             log.info("No RapidAPI key configured — returning mock job data");
             return createMockJobMatches(request, source);
@@ -136,7 +134,7 @@ public class JobMatchServiceImpl implements JobMatchService {
         String resumeText = fetchResumeText(request.getResumeId());
 
         try {
-            // Build query
+            // Construct the search query combining title and location
             String query = request.getJobTitle()
                     + (request.getLocation() != null && !request.getLocation().isBlank()
                     ? " in " + request.getLocation() : "");
@@ -171,7 +169,7 @@ public class JobMatchServiceImpl implements JobMatchService {
                         String description = str(job, "job_description");
                         String applyUrl    = str(job, "job_apply_link");
 
-                        // Truncate description for DB
+
                         String shortDesc = description != null && description.length() > 2000
                                 ? description.substring(0, 2000) : description;
 
@@ -265,7 +263,7 @@ public class JobMatchServiceImpl implements JobMatchService {
             String missing = (String) job[3];
             int score      = (int) job[4];
 
-            // Compute real score against resume if possible
+            // Calculate an actual match score against the user's resume text, if we have it
             if (!resumeText.isBlank()) {
                 score = computeBasicScore(resumeText, desc);
                 missing = extractMissingKeywords(resumeText, desc);

@@ -19,16 +19,9 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Redis cache configuration for the JobMatch service.
- * <p>
- * Cache names and TTLs:
- * <ul>
- *   <li>{@code jobmatch:jobs}   – live job search results from JSearch API – 30 min</li>
- *   <li>{@code jobmatch:score}  – resume-to-job match scores               – 1 h</li>
- * </ul>
- * Short TTLs are intentional: job postings change frequently.
- */
+// Sets up Redis caching for the job matching service.
+// We keep job search results for 30 minutes and resume scores for an hour.
+// Short lifespans are necessary because live job postings vanish fast!
 @EnableCaching
 @Configuration
 public class RedisConfig {

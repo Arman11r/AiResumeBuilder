@@ -166,10 +166,8 @@ public class ResumeServiceImpl implements ResumeService {
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    /**
-     * Calls auth-service to get subscription plan, then checks resume count.
-     * FREE users are limited to 3 resumes.
-     */
+    // Checks the user's subscription plan via the auth-service. 
+    // If they're on the FREE plan, we cap their resumes at 3.
     private void enforceQuota(String userId) {
         String plan = fetchSubscriptionPlan(userId);
         if ("FREE".equalsIgnoreCase(plan)) {

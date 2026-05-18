@@ -25,10 +25,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-/**
- * Unit tests for {@link ExportServiceImpl}.
- * All tests follow the Arrange-Act-Assert (AAA) pattern.
- */
+// Unit tests verifying the core logic of this service.
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ExportServiceImpl Tests")
 class ExportServiceImplTest {
@@ -80,7 +77,7 @@ class ExportServiceImplTest {
         @Test
         @DisplayName("should create a QUEUED PDF job and return the response")
         void submitPdfExport_underDailyLimit_returnsQueuedJob() {
-            // Arrange
+            // 1. Set up the test conditions
             injectValues();
             ExportRequest request = buildRequest();
             ExportJob savedJob = buildJob("job-001", ExportJob.Format.PDF, ExportJob.Status.QUEUED);
@@ -89,10 +86,10 @@ class ExportServiceImplTest {
                     .thenReturn(3L);
             when(exportRepository.save(any(ExportJob.class))).thenReturn(savedJob);
 
-            // Act
+            // 2. Run the method under test
             ExportJobResponse response = exportService.submitPdfExport(request);
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(response.getJobId()).isEqualTo("job-001");
             assertThat(response.getFormat()).isEqualTo("PDF");
             assertThat(response.getStatus()).isEqualTo("QUEUED");
@@ -102,14 +99,14 @@ class ExportServiceImplTest {
         @Test
         @DisplayName("should throw TOO_MANY_REQUESTS when daily PDF limit is reached")
         void submitPdfExport_dailyLimitExceeded_throwsTooManyRequests() {
-            // Arrange
+            // 1. Set up the test conditions
             injectValues();
             ExportRequest request = buildRequest();
 
             when(exportRepository.countByUserIdAndRequestedAtAfter(eq("user-001"), any(LocalDateTime.class)))
                     .thenReturn(10L);
 
-            // Act & Assert
+            // Run and verify the expected outcome
             assertThatThrownBy(() -> exportService.submitPdfExport(request))
                     .isInstanceOf(ResponseStatusException.class)
                     .hasMessageContaining("Daily PDF export limit reached");
@@ -129,16 +126,16 @@ class ExportServiceImplTest {
         @Test
         @DisplayName("should create a QUEUED DOCX job without checking daily limit")
         void submitDocxExport_createsQueuedDocxJob() {
-            // Arrange
+            // 1. Set up the test conditions
             injectValues();
             ExportRequest request = buildRequest();
             ExportJob savedJob = buildJob("job-002", ExportJob.Format.DOCX, ExportJob.Status.QUEUED);
             when(exportRepository.save(any(ExportJob.class))).thenReturn(savedJob);
 
-            // Act
+            // 2. Run the method under test
             ExportJobResponse response = exportService.submitDocxExport(request);
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(response.getFormat()).isEqualTo("DOCX");
             assertThat(response.getStatus()).isEqualTo("QUEUED");
         }
@@ -155,16 +152,16 @@ class ExportServiceImplTest {
         @Test
         @DisplayName("should create a QUEUED JSON job")
         void submitJsonExport_createsQueuedJsonJob() {
-            // Arrange
+            // 1. Set up the test conditions
             injectValues();
             ExportRequest request = buildRequest();
             ExportJob savedJob = buildJob("job-003", ExportJob.Format.JSON, ExportJob.Status.QUEUED);
             when(exportRepository.save(any(ExportJob.class))).thenReturn(savedJob);
 
-            // Act
+            // 2. Run the method under test
             ExportJobResponse response = exportService.submitJsonExport(request);
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(response.getFormat()).isEqualTo("JSON");
         }
     }
@@ -180,15 +177,15 @@ class ExportServiceImplTest {
         @Test
         @DisplayName("should return job response when job exists")
         void getJobStatus_existingJob_returnsResponse() {
-            // Arrange
+            // 1. Set up the test conditions
             ExportJob job = buildJob("job-001", ExportJob.Format.PDF, ExportJob.Status.COMPLETED);
             job.setFileUrl("/tmp/exports/job-001.pdf");
             when(exportRepository.findById("job-001")).thenReturn(Optional.of(job));
 
-            // Act
+            // 2. Run the method under test
             ExportJobResponse response = exportService.getJobStatus("job-001");
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(response.getStatus()).isEqualTo("COMPLETED");
             assertThat(response.getFileUrl()).isEqualTo("/tmp/exports/job-001.pdf");
         }
@@ -196,10 +193,10 @@ class ExportServiceImplTest {
         @Test
         @DisplayName("should throw NOT_FOUND when job does not exist")
         void getJobStatus_nonExistingJob_throwsNotFound() {
-            // Arrange
+            // 1. Set up the test conditions
             when(exportRepository.findById("ghost-id")).thenReturn(Optional.empty());
 
-            // Act & Assert
+            // Run and verify the expected outcome
             assertThatThrownBy(() -> exportService.getJobStatus("ghost-id"))
                     .isInstanceOf(ResponseStatusException.class)
                     .hasMessageContaining("Export job not found");
@@ -217,15 +214,15 @@ class ExportServiceImplTest {
         @Test
         @DisplayName("should return all export jobs for the given user")
         void getExportsByUser_withJobs_returnsList() {
-            // Arrange
+            // 1. Set up the test conditions
             ExportJob job1 = buildJob("job-001", ExportJob.Format.PDF, ExportJob.Status.COMPLETED);
             ExportJob job2 = buildJob("job-002", ExportJob.Format.DOCX, ExportJob.Status.QUEUED);
             when(exportRepository.findByUserId("user-001")).thenReturn(List.of(job1, job2));
 
-            // Act
+            // 2. Run the method under test
             List<ExportJobResponse> responses = exportService.getExportsByUser("user-001");
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(responses).hasSize(2);
             assertThat(responses).extracting(ExportJobResponse::getFormat)
                     .containsExactlyInAnyOrder("PDF", "DOCX");
@@ -234,13 +231,13 @@ class ExportServiceImplTest {
         @Test
         @DisplayName("should return empty list when user has no exports")
         void getExportsByUser_noJobs_returnsEmptyList() {
-            // Arrange
+            // 1. Set up the test conditions
             when(exportRepository.findByUserId("user-002")).thenReturn(List.of());
 
-            // Act
+            // 2. Run the method under test
             List<ExportJobResponse> responses = exportService.getExportsByUser("user-002");
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(responses).isEmpty();
         }
     }
@@ -256,24 +253,24 @@ class ExportServiceImplTest {
         @Test
         @DisplayName("should delete the export job when it exists")
         void deleteExport_existingJob_deletesFromRepo() {
-            // Arrange
+            // 1. Set up the test conditions
             ExportJob job = buildJob("job-001", ExportJob.Format.PDF, ExportJob.Status.COMPLETED);
             when(exportRepository.findById("job-001")).thenReturn(Optional.of(job));
 
-            // Act
+            // 2. Run the method under test
             exportService.deleteExport("job-001");
 
-            // Assert
+            // 3. Verify the outcome
             verify(exportRepository).delete(job);
         }
 
         @Test
         @DisplayName("should throw NOT_FOUND when export job does not exist")
         void deleteExport_nonExistingJob_throwsNotFound() {
-            // Arrange
+            // 1. Set up the test conditions
             when(exportRepository.findById("ghost-id")).thenReturn(Optional.empty());
 
-            // Act & Assert
+            // Run and verify the expected outcome
             assertThatThrownBy(() -> exportService.deleteExport("ghost-id"))
                     .isInstanceOf(ResponseStatusException.class)
                     .hasMessageContaining("Export job not found");

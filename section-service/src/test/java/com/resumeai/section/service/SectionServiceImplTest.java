@@ -23,10 +23,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-/**
- * Unit tests for {@link SectionServiceImpl}.
- * All tests follow the Arrange-Act-Assert (AAA) pattern.
- */
+// Unit tests verifying the core logic of this service.
 @ExtendWith(MockitoExtension.class)
 @DisplayName("SectionServiceImpl Tests")
 class SectionServiceImplTest {
@@ -62,7 +59,7 @@ class SectionServiceImplTest {
         @Test
         @DisplayName("should save and return a new section")
         void createSection_validRequest_returnsResponse() {
-            // Arrange
+            // 1. Set up the test conditions
             CreateSectionRequest request = new CreateSectionRequest();
             request.setResumeId("resume-001");
             request.setSectionType("EXPERIENCE");
@@ -74,10 +71,10 @@ class SectionServiceImplTest {
             ResumeSection saved = buildSection("section-001", "resume-001", 1);
             when(sectionRepository.save(any(ResumeSection.class))).thenReturn(saved);
 
-            // Act
+            // 2. Run the method under test
             SectionResponse response = sectionService.createSection(request);
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(response.getSectionId()).isEqualTo("section-001");
             assertThat(response.getSectionType()).isEqualTo("EXPERIENCE");
             verify(sectionRepository).save(any(ResumeSection.class));
@@ -86,13 +83,13 @@ class SectionServiceImplTest {
         @Test
         @DisplayName("should throw BAD_REQUEST for invalid section type")
         void createSection_invalidSectionType_throwsBadRequest() {
-            // Arrange
+            // 1. Set up the test conditions
             CreateSectionRequest request = new CreateSectionRequest();
             request.setResumeId("resume-001");
             request.setSectionType("UNKNOWN_TYPE");
             request.setTitle("Unknown");
 
-            // Act & Assert
+            // Run and verify the expected outcome
             assertThatThrownBy(() -> sectionService.createSection(request))
                     .isInstanceOf(ResponseStatusException.class)
                     .hasMessageContaining("Invalid section type");
@@ -110,24 +107,24 @@ class SectionServiceImplTest {
         @Test
         @DisplayName("should return section when it exists")
         void getSectionById_existingSection_returnsResponse() {
-            // Arrange
+            // 1. Set up the test conditions
             ResumeSection section = buildSection("section-001", "resume-001", 1);
             when(sectionRepository.findById("section-001")).thenReturn(Optional.of(section));
 
-            // Act
+            // 2. Run the method under test
             SectionResponse response = sectionService.getSectionById("section-001");
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(response.getSectionId()).isEqualTo("section-001");
         }
 
         @Test
         @DisplayName("should throw NOT_FOUND when section does not exist")
         void getSectionById_nonExisting_throwsNotFound() {
-            // Arrange
+            // 1. Set up the test conditions
             when(sectionRepository.findById("ghost-id")).thenReturn(Optional.empty());
 
-            // Act & Assert
+            // Run and verify the expected outcome
             assertThatThrownBy(() -> sectionService.getSectionById("ghost-id"))
                     .isInstanceOf(ResponseStatusException.class)
                     .hasMessageContaining("Section not found");
@@ -145,16 +142,16 @@ class SectionServiceImplTest {
         @Test
         @DisplayName("should return all sections ordered by displayOrder")
         void getSectionsByResumeId_returnsOrderedList() {
-            // Arrange
+            // 1. Set up the test conditions
             ResumeSection s1 = buildSection("s-001", "resume-001", 1);
             ResumeSection s2 = buildSection("s-002", "resume-001", 2);
             when(sectionRepository.findByResumeIdOrderByDisplayOrderAsc("resume-001"))
                     .thenReturn(List.of(s1, s2));
 
-            // Act
+            // 2. Run the method under test
             List<SectionResponse> responses = sectionService.getSectionsByResumeId("resume-001");
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(responses).hasSize(2);
             assertThat(responses.get(0).getDisplayOrder()).isEqualTo(1);
             assertThat(responses.get(1).getDisplayOrder()).isEqualTo(2);
@@ -172,7 +169,7 @@ class SectionServiceImplTest {
         @Test
         @DisplayName("should update title and content when provided")
         void updateSection_validFields_updatesSection() {
-            // Arrange
+            // 1. Set up the test conditions
             ResumeSection section = buildSection("section-001", "resume-001", 1);
             when(sectionRepository.findById("section-001")).thenReturn(Optional.of(section));
             when(sectionRepository.save(any(ResumeSection.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -181,10 +178,10 @@ class SectionServiceImplTest {
             request.setTitle("Updated Title");
             request.setContent("Updated content here.");
 
-            // Act
+            // 2. Run the method under test
             SectionResponse response = sectionService.updateSection("section-001", request);
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(response.getTitle()).isEqualTo("Updated Title");
             assertThat(response.getContent()).isEqualTo("Updated content here.");
             verify(sectionRepository).save(any(ResumeSection.class));
@@ -202,7 +199,7 @@ class SectionServiceImplTest {
         @Test
         @DisplayName("should apply new display orders to all sections")
         void reorderSections_validList_appliesOrders() {
-            // Arrange
+            // 1. Set up the test conditions
             ResumeSection s1 = buildSection("s-001", "resume-001", 2);
             ResumeSection s2 = buildSection("s-002", "resume-001", 1);
             when(sectionRepository.findAllById(any())).thenReturn(List.of(s1, s2));
@@ -212,10 +209,10 @@ class SectionServiceImplTest {
                     new SectionOrderDTO("s-002", 2)
             );
 
-            // Act
+            // 2. Run the method under test
             sectionService.reorderSections(newOrder);
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(s1.getDisplayOrder()).isEqualTo(1);
             assertThat(s2.getDisplayOrder()).isEqualTo(2);
             verify(sectionRepository).saveAll(anyList());
@@ -224,7 +221,7 @@ class SectionServiceImplTest {
         @Test
         @DisplayName("should throw BAD_REQUEST when a section ID is missing")
         void reorderSections_missingSectionId_throwsBadRequest() {
-            // Arrange
+            // 1. Set up the test conditions
             // The repo returns only 1 section but 2 IDs were requested
             ResumeSection s1 = buildSection("s-001", "resume-001", 1);
             when(sectionRepository.findAllById(any())).thenReturn(List.of(s1));
@@ -234,7 +231,7 @@ class SectionServiceImplTest {
                     new SectionOrderDTO("ghost-id", 2) // does not exist
             );
 
-            // Act & Assert
+            // Run and verify the expected outcome
             assertThatThrownBy(() -> sectionService.reorderSections(newOrder))
                     .isInstanceOf(ResponseStatusException.class)
                     .hasMessageContaining("One or more section IDs not found");
@@ -252,32 +249,32 @@ class SectionServiceImplTest {
         @Test
         @DisplayName("should flip visible from true to false")
         void toggleVisibility_visibleSection_becomesHidden() {
-            // Arrange
+            // 1. Set up the test conditions
             ResumeSection section = buildSection("s-001", "resume-001", 1);
             section.setVisible(true);
             when(sectionRepository.findById("s-001")).thenReturn(Optional.of(section));
             when(sectionRepository.save(any(ResumeSection.class))).thenAnswer(inv -> inv.getArgument(0));
 
-            // Act
+            // 2. Run the method under test
             SectionResponse response = sectionService.toggleVisibility("s-001");
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(response.isVisible()).isFalse();
         }
 
         @Test
         @DisplayName("should flip visible from false to true")
         void toggleVisibility_hiddenSection_becomesVisible() {
-            // Arrange
+            // 1. Set up the test conditions
             ResumeSection section = buildSection("s-001", "resume-001", 1);
             section.setVisible(false);
             when(sectionRepository.findById("s-001")).thenReturn(Optional.of(section));
             when(sectionRepository.save(any(ResumeSection.class))).thenAnswer(inv -> inv.getArgument(0));
 
-            // Act
+            // 2. Run the method under test
             SectionResponse response = sectionService.toggleVisibility("s-001");
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(response.isVisible()).isTrue();
         }
     }
@@ -293,24 +290,24 @@ class SectionServiceImplTest {
         @Test
         @DisplayName("should delete section when it exists")
         void deleteSection_existingSection_deletesFromRepo() {
-            // Arrange
+            // 1. Set up the test conditions
             ResumeSection section = buildSection("s-001", "resume-001", 1);
             when(sectionRepository.findById("s-001")).thenReturn(Optional.of(section));
 
-            // Act
+            // 2. Run the method under test
             sectionService.deleteSection("s-001");
 
-            // Assert
+            // 3. Verify the outcome
             verify(sectionRepository).delete(section);
         }
 
         @Test
         @DisplayName("should throw NOT_FOUND when section does not exist")
         void deleteSection_nonExisting_throwsNotFound() {
-            // Arrange
+            // 1. Set up the test conditions
             when(sectionRepository.findById("ghost-id")).thenReturn(Optional.empty());
 
-            // Act & Assert
+            // Run and verify the expected outcome
             assertThatThrownBy(() -> sectionService.deleteSection("ghost-id"))
                     .isInstanceOf(ResponseStatusException.class)
                     .hasMessageContaining("Section not found");
@@ -328,12 +325,12 @@ class SectionServiceImplTest {
         @Test
         @DisplayName("should call deleteByResumeId on the repository")
         void deleteSectionsByResumeId_callsRepository() {
-            // Arrange – nothing to stub, void method
+            // 1. Set up the test conditions
 
-            // Act
+            // 2. Run the method under test
             sectionService.deleteSectionsByResumeId("resume-001");
 
-            // Assert
+            // 3. Verify the outcome
             verify(sectionRepository).deleteByResumeId("resume-001");
         }
     }

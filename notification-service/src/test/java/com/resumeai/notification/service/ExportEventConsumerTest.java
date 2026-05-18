@@ -29,7 +29,7 @@ class ExportEventConsumerTest {
 
     @Test
     void testConsumeExportCompletedEvent() {
-        // Arrange
+        // 1. Set up the test conditions
         ExportCompletedEvent event = ExportCompletedEvent.builder()
                 .jobId("job123")
                 .userId("user456")
@@ -38,10 +38,10 @@ class ExportEventConsumerTest {
                 .completedAt(LocalDateTime.now())
                 .build();
 
-        // Act
+        // 2. Run the method under test
         exportEventConsumer.consumeExportCompletedEvent(event);
 
-        // Assert
+        // 3. Verify the outcome
         ArgumentCaptor<SendNotificationRequest> requestCaptor = ArgumentCaptor.forClass(SendNotificationRequest.class);
         verify(notificationService).send(requestCaptor.capture());
 

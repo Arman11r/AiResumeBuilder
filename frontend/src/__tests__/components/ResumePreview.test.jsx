@@ -1,7 +1,4 @@
 /**
- * Tests for src/components/ResumePreview.jsx
- *
- * Covers:
  *   - renders nothing when resume prop is null/undefined
  *   - renders the resume title as an <h1>
  *   - renders the target job title
@@ -14,8 +11,6 @@
  *   - skips sections that are not visible
  *   - falls back to "Your Name" when title is missing
  *   - falls back to "Target Role" when targetJobTitle is missing
- *
- * All tests follow the Arrange-Act-Assert (AAA) pattern.
  */
 
 import React from 'react';
@@ -23,7 +18,7 @@ import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import ResumePreview from '../../components/ResumePreview';
 
-// ── Shared fixtures ───────────────────────────────────────────────────────────
+// Shared fixtures
 
 const baseResume = {
   resumeId: 'resume-001',
@@ -76,9 +71,7 @@ const customSection = {
   visible: true,
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Null / undefined resume
-// ─────────────────────────────────────────────────────────────────────────────
 
 describe('ResumePreview – null resume', () => {
   test('renders nothing when resume prop is null', () => {
@@ -98,9 +91,7 @@ describe('ResumePreview – null resume', () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Header: name and job title
-// ─────────────────────────────────────────────────────────────────────────────
 
 describe('ResumePreview – header rendering', () => {
   test('renders resume title inside an h1 element', () => {
@@ -142,9 +133,7 @@ describe('ResumePreview – header rendering', () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
 // SUMMARY section
-// ─────────────────────────────────────────────────────────────────────────────
 
 describe('ResumePreview – SUMMARY section', () => {
   test('renders summary content when section is visible', () => {
@@ -167,9 +156,9 @@ describe('ResumePreview – SUMMARY section', () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
+
 // EXPERIENCE section
-// ─────────────────────────────────────────────────────────────────────────────
+
 
 describe('ResumePreview – EXPERIENCE section', () => {
   test('renders the "Experience" heading when experience sections exist', () => {
@@ -205,9 +194,9 @@ describe('ResumePreview – EXPERIENCE section', () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
+
 // EDUCATION section
-// ─────────────────────────────────────────────────────────────────────────────
+
 
 describe('ResumePreview – EDUCATION section', () => {
   test('renders the "Education" heading when education sections exist', () => {
@@ -227,9 +216,9 @@ describe('ResumePreview – EDUCATION section', () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
+
 // SKILLS section
-// ─────────────────────────────────────────────────────────────────────────────
+
 
 describe('ResumePreview – SKILLS section', () => {
   test('renders the "Skills" heading when skills sections exist', () => {
@@ -249,9 +238,9 @@ describe('ResumePreview – SKILLS section', () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
+
 // Custom "other" sections
-// ─────────────────────────────────────────────────────────────────────────────
+
 
 describe('ResumePreview – custom sections', () => {
   test('renders custom section title and content', () => {
@@ -264,9 +253,9 @@ describe('ResumePreview – custom sections', () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
+
 // Multiple sections together
-// ─────────────────────────────────────────────────────────────────────────────
+
 
 describe('ResumePreview – full resume render', () => {
   const allSections = [summarySection, expSection, eduSection, skillsSection, customSection];
@@ -287,7 +276,7 @@ describe('ResumePreview – full resume render', () => {
   test('hidden sections are not rendered in the final output', () => {
     // Arrange
     const hiddenExp = { ...expSection, visible: false };
-    const sections  = [summarySection, hiddenExp, eduSection];
+    const sections = [summarySection, hiddenExp, eduSection];
 
     // Act
     render(<ResumePreview resume={baseResume} sections={sections} />);

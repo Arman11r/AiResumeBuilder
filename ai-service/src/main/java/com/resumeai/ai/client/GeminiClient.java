@@ -31,15 +31,15 @@ public class GeminiClient {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        // Map for part
+        // 1. Build the specific text part for the prompt
         Map<String, Object> part = new HashMap<>();
         part.put("text", prompt);
 
-        // Map for contents
+        // 2. Wrap it inside a contents array as required by the API
         Map<String, Object> content = new HashMap<>();
         content.put("parts", List.of(part));
 
-        // Root Map
+        // 3. Assemble the final JSON payload structure
         Map<String, Object> body = new HashMap<>();
         body.put("contents", List.of(content));
 

@@ -19,22 +19,14 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Redis cache configuration for the AI service.
- * <p>
- * Cache names and their TTLs:
- * <ul>
- *   <li>{@code ai:skills}      – suggested skills per job title  – 12 h</li>
- *   <li>{@code ai:summary}     – generated professional summaries – 30 min</li>
- *   <li>{@code ai:bullets}     – generated bullet points         – 30 min</li>
- *   <li>{@code ai:quota}       – per-user quota check            – 5 min</li>
- * </ul>
- */
+// Configures Redis caching for the AI service to reduce API costs.
+// We cache skills for 12 hours, while AI generations (summaries/bullets) last 30 minutes.
+// User quotas are checked frequently, so they only cache for 5 minutes.
 @EnableCaching
 @Configuration
 public class RedisConfig {
 
-    /** Default TTL for all caches that don't have a specific override. */
+    // Fallback TTL if a cache isn't explicitly configured below
     private static final Duration DEFAULT_TTL = Duration.ofMinutes(30);
 
     @Bean

@@ -65,7 +65,7 @@ export default function Home() {
         ]);
         if (tRes.data?.length > 0) setTemplates(tRes.data);
         setPublicResumes(rRes.data || []);
-      } catch (_) {}
+      } catch (_) { }
     };
     fetchPublicData();
   }, []);
@@ -77,6 +77,14 @@ export default function Home() {
     }
     setUsingTemplate(template.templateId);
     try {
+      if (template.isPremium) {
+        const profileRes = await api.get('/auth/profile');
+        if (profileRes.data.subscriptionPlan !== 'PREMIUM' && profileRes.data.role !== 'ADMIN') {
+          showToast('This is a premium template. Please upgrade to use it.', 'warning');
+          return;
+        }
+      }
+
       const res = await api.post('/resumes', {
         title: 'Demo Resume - ' + template.name,
         targetJobTitle: 'Senior Software Engineer',
@@ -98,7 +106,8 @@ export default function Home() {
       showToast(`"${template.name}" applied with demo data`, 'success');
       navigate(`/builder/${newResumeId}`);
     } catch (err) {
-      showToast('Could not create resume. Try again.', 'error');
+      const errMsg = err.response?.data?.message || err.response?.data?.error || 'Could not create resume. Try again.';
+      showToast(errMsg, 'error');
     } finally {
       setUsingTemplate(null);
     }
@@ -136,22 +145,6 @@ export default function Home() {
         alignItems: 'center',
       }}>
         <div>
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '5px 12px',
-            border: '1px solid var(--border-strong)',
-            borderRadius: 999,
-            fontSize: 12,
-            fontWeight: 600,
-            color: 'var(--text-muted)',
-            marginBottom: 28,
-            letterSpacing: '0.02em',
-          }}>
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }}></span>
-            AI-Powered Resume Builder
-          </div>
           <h1 style={{ fontSize: 54, fontWeight: 900, letterSpacing: '-0.05em', lineHeight: 1.08, marginBottom: 24 }}>
             Build a resume<br />
             <span style={{ color: 'var(--primary)' }}>that gets hired.</span>
@@ -185,7 +178,7 @@ export default function Home() {
               <span style={{ marginLeft: 8, fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>resume-preview.pdf</span>
             </div>
             <div style={{ borderBottom: '2px solid var(--primary)', paddingBottom: 16, marginBottom: 16 }}>
-              <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.03em' }}>Alex Johnson</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.03em' }}>Arman Ahmed</div>
               <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>Senior Software Engineer</div>
             </div>
             {['Experience', 'Education', 'Skills'].map((s) => (
@@ -273,7 +266,7 @@ export default function Home() {
             {publicResumes.length === 0 ? (
               <div className="empty-state" style={{ gridColumn: '1/-1' }}>
                 <div className="empty-icon">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>
                 </div>
                 <h3>No public resumes yet</h3>
                 <p>Be the first to share your resume with the community.</p>

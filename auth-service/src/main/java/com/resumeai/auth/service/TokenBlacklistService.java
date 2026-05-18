@@ -8,11 +8,8 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 
-/**
- * Redis-backed JWT blacklist.
- * Revoked tokens are stored with a TTL equal to the JWT expiry window so
- * that entries clean up automatically – no manual purge job required.
- */
+// Uses Redis to store invalidated JWTs. 
+// Tokens naturally expire in Redis right when the JWT itself expires, saving us from writing cleanup jobs.
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -25,12 +22,7 @@ public class TokenBlacklistService {
     @Value("${jwt.expiry-ms:86400000}")
     private long jwtExpiryMs;
 
-    /**
-     * Revoke a token by adding it to the Redis blacklist.
-     * The entry lives for exactly jwtExpiryMs milliseconds, matching the
-     * token's own lifetime – once it would have expired anyway, the key
-     * is also removed from Redis.
-     */
+    // Adds the token to Redis. It'll automatically vanish when the JWT's natural lifespan ends.
     public void blacklist(String token) {
         String key = BLACKLIST_PREFIX + token;
         Duration ttl = Duration.ofMillis(jwtExpiryMs);
@@ -38,10 +30,7 @@ public class TokenBlacklistService {
         log.debug("Token blacklisted in Redis with TTL {}ms", jwtExpiryMs);
     }
 
-    /**
-     * Returns true if the token has been explicitly revoked (i.e. the user
-     * called /logout or an admin forcibly invalidated it).
-     */
+    // Checks if the user was forcibly logged out or decided to log out themselves.
     public boolean isBlacklisted(String token) {
         Boolean exists = redisTemplate.hasKey(BLACKLIST_PREFIX + token);
         return Boolean.TRUE.equals(exists);

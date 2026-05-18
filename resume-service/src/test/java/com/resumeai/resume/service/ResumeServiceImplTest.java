@@ -26,10 +26,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-/**
- * Unit tests for {@link ResumeServiceImpl}.
- * All tests follow the Arrange-Act-Assert (AAA) pattern.
- */
+// Unit tests verifying the core logic of this service.
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ResumeServiceImpl Tests")
 class ResumeServiceImplTest {
@@ -81,7 +78,7 @@ class ResumeServiceImplTest {
         @Test
         @DisplayName("should create and return a resume for a FREE user under quota")
         void createResume_freeUserUnderQuota_returnsResponse() {
-            // Arrange
+            // 1. Set up the test conditions
             CreateResumeRequest request = new CreateResumeRequest();
             request.setTitle("My Resume");
             request.setTargetJobTitle("Software Engineer");
@@ -92,10 +89,10 @@ class ResumeServiceImplTest {
             Resume saved = buildResume("resume-001", "user-001");
             when(resumeRepository.save(any(Resume.class))).thenReturn(saved);
 
-            // Act
+            // 2. Run the method under test
             ResumeResponse response = resumeService.createResume("user-001", request);
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(response).isNotNull();
             assertThat(response.getResumeId()).isEqualTo("resume-001");
             assertThat(response.getStatus()).isEqualTo("DRAFT");
@@ -105,14 +102,14 @@ class ResumeServiceImplTest {
         @Test
         @DisplayName("should throw ResumeQuotaExceededException when FREE user hits limit")
         void createResume_freeUserAtQuota_throwsException() {
-            // Arrange
+            // 1. Set up the test conditions
             CreateResumeRequest request = new CreateResumeRequest();
             request.setTitle("Resume 4");
 
             stubFreeUser("user-001");
             when(resumeRepository.countByUserId("user-001")).thenReturn(3L);
 
-            // Act & Assert
+            // Run and verify the expected outcome
             assertThatThrownBy(() -> resumeService.createResume("user-001", request))
                     .isInstanceOf(ResumeQuotaExceededException.class);
 
@@ -122,7 +119,7 @@ class ResumeServiceImplTest {
         @Test
         @DisplayName("should allow PREMIUM user to create beyond free quota")
         void createResume_premiumUserOverFreeLimit_succeeds() {
-            // Arrange
+            // 1. Set up the test conditions
             CreateResumeRequest request = new CreateResumeRequest();
             request.setTitle("Resume #10");
 
@@ -130,10 +127,10 @@ class ResumeServiceImplTest {
             Resume saved = buildResume("resume-010", "user-002");
             when(resumeRepository.save(any(Resume.class))).thenReturn(saved);
 
-            // Act
+            // 2. Run the method under test
             ResumeResponse response = resumeService.createResume("user-002", request);
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(response.getResumeId()).isEqualTo("resume-010");
             verify(resumeRepository, never()).countByUserId(any()); // quota not checked for PREMIUM
         }
@@ -141,7 +138,7 @@ class ResumeServiceImplTest {
         @Test
         @DisplayName("should default language to 'en' when not specified in request")
         void createResume_noLanguage_defaultsToEn() {
-            // Arrange
+            // 1. Set up the test conditions
             CreateResumeRequest request = new CreateResumeRequest();
             request.setTitle("Resume");
             // language intentionally left null
@@ -156,7 +153,7 @@ class ResumeServiceImplTest {
                 return saved;
             });
 
-            // Act
+            // 2. Run the method under test
             resumeService.createResume("user-001", request);
 
             // Assert – verified inline above
@@ -175,14 +172,14 @@ class ResumeServiceImplTest {
         @Test
         @DisplayName("should return resume when it exists")
         void getResumeById_existingId_returnsResponse() {
-            // Arrange
+            // 1. Set up the test conditions
             Resume resume = buildResume("resume-001", "user-001");
             when(resumeRepository.findById("resume-001")).thenReturn(Optional.of(resume));
 
-            // Act
+            // 2. Run the method under test
             ResumeResponse response = resumeService.getResumeById("resume-001");
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(response.getResumeId()).isEqualTo("resume-001");
             assertThat(response.getUserId()).isEqualTo("user-001");
         }
@@ -190,10 +187,10 @@ class ResumeServiceImplTest {
         @Test
         @DisplayName("should throw NOT_FOUND when resume does not exist")
         void getResumeById_nonExistingId_throwsNotFound() {
-            // Arrange
+            // 1. Set up the test conditions
             when(resumeRepository.findById("ghost-id")).thenReturn(Optional.empty());
 
-            // Act & Assert
+            // Run and verify the expected outcome
             assertThatThrownBy(() -> resumeService.getResumeById("ghost-id"))
                     .isInstanceOf(ResponseStatusException.class)
                     .hasMessageContaining("Resume not found");
@@ -211,15 +208,15 @@ class ResumeServiceImplTest {
         @Test
         @DisplayName("should return list of resumes for a user")
         void getResumesByUser_existingUser_returnsList() {
-            // Arrange
+            // 1. Set up the test conditions
             Resume r1 = buildResume("resume-001", "user-001");
             Resume r2 = buildResume("resume-002", "user-001");
             when(resumeRepository.findByUserId("user-001")).thenReturn(List.of(r1, r2));
 
-            // Act
+            // 2. Run the method under test
             List<ResumeResponse> responses = resumeService.getResumesByUser("user-001");
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(responses).hasSize(2);
             assertThat(responses).extracting(ResumeResponse::getResumeId)
                     .containsExactly("resume-001", "resume-002");
@@ -228,13 +225,13 @@ class ResumeServiceImplTest {
         @Test
         @DisplayName("should return empty list when user has no resumes")
         void getResumesByUser_noResumes_returnsEmptyList() {
-            // Arrange
+            // 1. Set up the test conditions
             when(resumeRepository.findByUserId("user-002")).thenReturn(List.of());
 
-            // Act
+            // 2. Run the method under test
             List<ResumeResponse> responses = resumeService.getResumesByUser("user-002");
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(responses).isEmpty();
         }
     }
@@ -250,7 +247,7 @@ class ResumeServiceImplTest {
         @Test
         @DisplayName("should update title and status when both are provided")
         void updateResume_validRequest_updatesFields() {
-            // Arrange
+            // 1. Set up the test conditions
             Resume resume = buildResume("resume-001", "user-001");
             when(resumeRepository.findById("resume-001")).thenReturn(Optional.of(resume));
             when(resumeRepository.save(any(Resume.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -259,10 +256,10 @@ class ResumeServiceImplTest {
             request.setTitle("Updated Title");
             request.setStatus("COMPLETE");
 
-            // Act
+            // 2. Run the method under test
             ResumeResponse response = resumeService.updateResume("resume-001", request);
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(response.getTitle()).isEqualTo("Updated Title");
             assertThat(response.getStatus()).isEqualTo("COMPLETE");
         }
@@ -270,14 +267,14 @@ class ResumeServiceImplTest {
         @Test
         @DisplayName("should throw BAD_REQUEST for invalid status value")
         void updateResume_invalidStatus_throwsBadRequest() {
-            // Arrange
+            // 1. Set up the test conditions
             Resume resume = buildResume("resume-001", "user-001");
             when(resumeRepository.findById("resume-001")).thenReturn(Optional.of(resume));
 
             UpdateResumeRequest request = new UpdateResumeRequest();
             request.setStatus("PUBLISHED"); // not a valid enum
 
-            // Act & Assert
+            // Run and verify the expected outcome
             assertThatThrownBy(() -> resumeService.updateResume("resume-001", request))
                     .isInstanceOf(ResponseStatusException.class)
                     .hasMessageContaining("Invalid status");
@@ -295,31 +292,31 @@ class ResumeServiceImplTest {
         @Test
         @DisplayName("should set isPublic=true on publish")
         void publishResume_setsPublicTrue() {
-            // Arrange
+            // 1. Set up the test conditions
             Resume resume = buildResume("resume-001", "user-001");
             when(resumeRepository.findById("resume-001")).thenReturn(Optional.of(resume));
             when(resumeRepository.save(any(Resume.class))).thenAnswer(inv -> inv.getArgument(0));
 
-            // Act
+            // 2. Run the method under test
             ResumeResponse response = resumeService.publishResume("resume-001");
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(response.isPublic()).isTrue();
         }
 
         @Test
         @DisplayName("should set isPublic=false on unpublish")
         void unpublishResume_setsPublicFalse() {
-            // Arrange
+            // 1. Set up the test conditions
             Resume resume = buildResume("resume-001", "user-001");
             resume.setPublic(true);
             when(resumeRepository.findById("resume-001")).thenReturn(Optional.of(resume));
             when(resumeRepository.save(any(Resume.class))).thenAnswer(inv -> inv.getArgument(0));
 
-            // Act
+            // 2. Run the method under test
             ResumeResponse response = resumeService.unpublishResume("resume-001");
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(response.isPublic()).isFalse();
         }
     }
@@ -335,16 +332,16 @@ class ResumeServiceImplTest {
         @Test
         @DisplayName("should increment viewCount by 1")
         void incrementViewCount_incrementsCounter() {
-            // Arrange
+            // 1. Set up the test conditions
             Resume resume = buildResume("resume-001", "user-001");
             resume.setViewCount(5);
             when(resumeRepository.findById("resume-001")).thenReturn(Optional.of(resume));
             when(resumeRepository.save(any(Resume.class))).thenAnswer(inv -> inv.getArgument(0));
 
-            // Act
+            // 2. Run the method under test
             resumeService.incrementViewCount("resume-001");
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(resume.getViewCount()).isEqualTo(6);
             verify(resumeRepository).save(resume);
         }
@@ -361,7 +358,7 @@ class ResumeServiceImplTest {
         @Test
         @DisplayName("should create a copy with '(Copy)' suffix and status DRAFT")
         void duplicateResume_underQuota_createsCopy() {
-            // Arrange
+            // 1. Set up the test conditions
             Resume original = buildResume("resume-001", "user-001");
             when(resumeRepository.findById("resume-001")).thenReturn(Optional.of(original));
             stubFreeUser("user-001");
@@ -371,10 +368,10 @@ class ResumeServiceImplTest {
             copy.setTitle("My Resume (Copy)");
             when(resumeRepository.save(any(Resume.class))).thenReturn(copy);
 
-            // Act
+            // 2. Run the method under test
             ResumeResponse response = resumeService.duplicateResume("resume-001");
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(response.getTitle()).isEqualTo("My Resume (Copy)");
             assertThat(response.getStatus()).isEqualTo("DRAFT");
         }
@@ -391,24 +388,24 @@ class ResumeServiceImplTest {
         @Test
         @DisplayName("should delete the resume when it exists")
         void deleteResume_existingResume_deletesFromRepo() {
-            // Arrange
+            // 1. Set up the test conditions
             Resume resume = buildResume("resume-001", "user-001");
             when(resumeRepository.findById("resume-001")).thenReturn(Optional.of(resume));
 
-            // Act
+            // 2. Run the method under test
             resumeService.deleteResume("resume-001");
 
-            // Assert
+            // 3. Verify the outcome
             verify(resumeRepository).delete(resume);
         }
 
         @Test
         @DisplayName("should throw NOT_FOUND when resume does not exist")
         void deleteResume_nonExistingResume_throwsNotFound() {
-            // Arrange
+            // 1. Set up the test conditions
             when(resumeRepository.findById("ghost-id")).thenReturn(Optional.empty());
 
-            // Act & Assert
+            // Run and verify the expected outcome
             assertThatThrownBy(() -> resumeService.deleteResume("ghost-id"))
                     .isInstanceOf(ResponseStatusException.class)
                     .hasMessageContaining("Resume not found");
@@ -426,15 +423,15 @@ class ResumeServiceImplTest {
         @Test
         @DisplayName("should persist the new ATS score on the resume")
         void updateAtsScore_validScore_savesScore() {
-            // Arrange
+            // 1. Set up the test conditions
             Resume resume = buildResume("resume-001", "user-001");
             when(resumeRepository.findById("resume-001")).thenReturn(Optional.of(resume));
             when(resumeRepository.save(any(Resume.class))).thenAnswer(inv -> inv.getArgument(0));
 
-            // Act
+            // 2. Run the method under test
             ResumeResponse response = resumeService.updateAtsScore("resume-001", 87);
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(response.getAtsScore()).isEqualTo(87);
         }
     }
@@ -450,17 +447,17 @@ class ResumeServiceImplTest {
         @Test
         @DisplayName("should return only public resumes")
         void getPublicResumes_returnsPublicList() {
-            // Arrange
+            // 1. Set up the test conditions
             Resume pub1 = buildResume("resume-001", "user-001");
             pub1.setPublic(true);
             Resume pub2 = buildResume("resume-002", "user-002");
             pub2.setPublic(true);
             when(resumeRepository.findByIsPublicTrue()).thenReturn(List.of(pub1, pub2));
 
-            // Act
+            // 2. Run the method under test
             List<ResumeResponse> responses = resumeService.getPublicResumes();
 
-            // Assert
+            // 3. Verify the outcome
             assertThat(responses)
                     .hasSize(2)
                     .allMatch(ResumeResponse::isPublic);

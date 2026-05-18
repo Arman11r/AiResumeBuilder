@@ -34,7 +34,7 @@ public class ExportEventConsumer {
         } catch (Exception e) {
             log.error("Failed to process ExportCompletedEvent: {}", e.getMessage(), e);
             // Re-throw if you want RabbitMQ to retry or send to a DLQ
-            // throw e;
+            
         }
     }
 }
